@@ -1,0 +1,25 @@
+{
+  "genes": [
+    0.4935,
+    0.9506,
+    0.0,
+    0.4427,
+    0.8037,
+    0.9848,
+    0.5423,
+    0.755
+  ],
+  "fitness": 0.5039460241794587,
+  "gene_names": [
+    "fatigue_weight",
+    "relevance_weight",
+    "timing_weight",
+    "frequency_threshold",
+    "delay_probability",
+    "soften_threshold",
+    "category_boost",
+    "session_depth_factor"
+  ],
+  "saved_at": "2026-03-22T21:45:07.475432",
+  "label": "job_31bf8c90"
+}

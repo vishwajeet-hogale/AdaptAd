@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { evolveApi } from '../api/client'
 import { useStore } from '../store'
 import { useWebSocket, type WsMessage } from '../hooks/useWebSocket'
@@ -11,6 +11,9 @@ export default function Evolution() {
   const { settings, setChromosome, activeJobId, setActiveJobId } = useStore()
   const chromosomeGenes = useStore((s) => s.chromosomeGenes)
   const chromosomeFitness = useStore((s) => s.chromosomeFitness)
+
+  // Clear stale job ID from previous session on mount.
+  useEffect(() => { setActiveJobId(null) }, [])
 
   const [history, setHistory] = useState<GenPoint[]>([])
   const [status, setStatus] = useState<string>('idle')

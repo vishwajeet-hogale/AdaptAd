@@ -65,7 +65,7 @@ export const dataApi = {
 }
 
 export const evolveApi = {
-  start: (maxGenerations = 50, seed = 42) =>
+  start: (maxGenerations = 50, seed = Math.floor(Math.random() * 100000)) =>
     api.post<{ job_id: string; status: string }>('/evolve', { max_generations: maxGenerations, seed }),
   status: (jobId: string) => api.get<EvolutionJob>(`/evolve/${jobId}`),
   stop: (jobId: string) => api.post(`/evolve/${jobId}/stop`),

@@ -216,7 +216,7 @@ class GAEngine:
             self.users,
             self.content_items,
             self.ad_pool,
-            scenarios_per_user=5,
+            scenarios_per_user=10,
             rng_seed=self.np_seed + self.current_generation,
         )
         best_idx = int(np.argmax(self.fitnesses))
