@@ -139,19 +139,29 @@ def process_criteo(raw_dir: Path = RAW_DIR, max_rows: int = 1_000_000) -> dict:
     """
     Extract CTR distribution and feature importances from Criteo dataset.
 
-    Expected file: raw/criteo/train.txt (tab-separated, first col = label 0/1)
+    Expected file: raw/criteo/train.txt or raw/criteo/train.txt.gz
+    Tab-separated, first col = label 0/1.
     Falls back to hardcoded CTR = 0.031 if file missing.
     """
-    criteo_path = raw_dir / "criteo" / "train.txt"
+    gz_path = raw_dir / "criteo" / "train.txt.gz"
+    txt_path = raw_dir / "criteo" / "train.txt"
 
-    if not criteo_path.exists():
-        logger.warning("Criteo train.txt not found at %s. Using fallback CTR.", criteo_path)
+    if gz_path.exists():
+        criteo_path = gz_path
+        use_gz = True
+    elif txt_path.exists():
+        criteo_path = txt_path
+        use_gz = False
+    else:
+        logger.warning("Criteo train.txt[.gz] not found at %s. Using fallback CTR.", raw_dir / "criteo")
         return {"mean_ctr": FALLBACK_CTR, "source": "fallback"}
 
     try:
+        import gzip
         total = 0
         clicks = 0
-        with open(criteo_path, encoding="utf-8") as f:
+        open_fn = gzip.open if use_gz else open
+        with open_fn(criteo_path, "rt", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if i >= max_rows:
                     break
