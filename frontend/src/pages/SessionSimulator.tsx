@@ -22,7 +22,6 @@ export default function SessionSimulator() {
     dataApi.getContent(100).then((r) => { setContent(r.data.content); if (r.data.content[0]) setContentId(r.data.content[0].id) }).catch(() => {})
   }, [])
 
-  // Animate playhead when playing.
   useEffect(() => {
     if (!playing || !result) return
     if (playheadMinute >= result.content_duration_minutes) { setPlaying(false); return }
@@ -39,19 +38,18 @@ export default function SessionSimulator() {
     finally { setLoading(false) }
   }
 
-  const selectedUser = users.find((u) => u.id === userId)
   const selectedContent = content.find((c) => c.id === contentId)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Session Simulator</h1>
-        <p className="text-sm text-gray-400 mt-1">Simulate a full streaming session and see every ad decision</p>
+      <div className="border-b border-slate-800 pb-5">
+        <h1 className="text-xl font-semibold text-slate-100">Session Simulator</h1>
+        <p className="text-sm text-slate-500 mt-1">Simulate a full streaming session and see every ad decision</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="card space-y-3 lg:col-span-1">
-          <h2 className="font-semibold">Setup</h2>
+          <h2 className="text-sm font-medium text-slate-300">Setup</h2>
           <div>
             <label className="label">User</label>
             <select className="select-input w-full mt-1" value={userId} onChange={(e) => setUserId(Number(e.target.value))}>
@@ -63,7 +61,9 @@ export default function SessionSimulator() {
             <select className="select-input w-full mt-1" value={contentId} onChange={(e) => setContentId(Number(e.target.value))}>
               {content.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
-            {selectedContent && <p className="text-xs text-gray-500 mt-1">{selectedContent.genre} | {selectedContent.duration_minutes}min | {selectedContent.mood}</p>}
+            {selectedContent && (
+              <p className="text-xs text-slate-500 mt-1">{selectedContent.genre} · {selectedContent.duration_minutes}min · {selectedContent.mood}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -80,7 +80,7 @@ export default function SessionSimulator() {
             </div>
           </div>
           <button className="btn-primary w-full" onClick={runSimulation} disabled={loading}>
-            {loading ? 'Simulating...' : 'Run Simulation'}
+            {loading ? 'Simulating…' : 'Run Simulation'}
           </button>
           {error && <p className="text-suppress text-sm">{error}</p>}
         </div>
@@ -89,14 +89,14 @@ export default function SessionSimulator() {
           {result ? (
             <>
               <div className="card">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-start justify-between mb-4 gap-3">
                   <div>
-                    <p className="font-semibold">{result.content_title}</p>
-                    <p className="text-xs text-gray-400">{result.content_duration_minutes}min</p>
+                    <p className="font-medium text-slate-200">{result.content_title}</p>
+                    <p className="text-xs text-slate-500">{result.content_duration_minutes}min</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <button className="btn-secondary text-xs" onClick={() => { setPlayheadMinute(0); setPlaying(true) }}>
-                      {playing ? 'Playing...' : 'Animate'}
+                      {playing ? 'Playing…' : 'Animate'}
                     </button>
                     {playing && <button className="btn-secondary text-xs" onClick={() => setPlaying(false)}>Pause</button>}
                   </div>
@@ -111,32 +111,34 @@ export default function SessionSimulator() {
               <FatigueMeter value={result.summary.final_fatigue} />
 
               <div className="card">
-                <h3 className="font-semibold mb-3">Summary</h3>
-                <div className="grid grid-cols-4 gap-3">
+                <h3 className="text-sm font-medium text-slate-300 mb-3">Summary</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {Object.entries(result.summary.decision_counts).map(([d, count]) => (
                     <div key={d} className="text-center">
-                      <p className="text-xl font-bold font-mono">{count}</p>
-                      <DecisionBadge decision={d} size="sm" />
+                      <p className="text-xl font-bold font-mono text-slate-200">{count}</p>
+                      <div className="mt-1"><DecisionBadge decision={d} size="sm" /></div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="card space-y-2">
-                <h3 className="font-semibold">Break-by-break</h3>
-                {result.decisions.map((d, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm py-1 border-b border-gray-800 last:border-0">
-                    <span className="text-gray-500 w-10">{d.break_minute}m</span>
-                    <DecisionBadge decision={d.decision} size="sm" />
-                    <span className="text-gray-400 text-xs">{d.ad_category} ad</span>
-                    <span className="ml-auto font-mono text-xs text-gray-500">score {d.combined_score.toFixed(3)}</span>
-                    <span className="font-mono text-xs text-gray-500">fat {d.fatigue_at_break.toFixed(2)}</span>
-                  </div>
-                ))}
+              <div className="card">
+                <h3 className="text-sm font-medium text-slate-300 mb-3">Break-by-break</h3>
+                <div className="space-y-0">
+                  {result.decisions.map((d, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm py-2 border-b border-slate-800/60 last:border-0 flex-wrap">
+                      <span className="text-slate-600 w-8 font-mono text-xs">{d.break_minute}m</span>
+                      <DecisionBadge decision={d.decision} size="sm" />
+                      <span className="text-slate-500 text-xs">{d.ad_category}</span>
+                      <span className="ml-auto font-mono text-xs text-slate-600">score {d.combined_score.toFixed(3)}</span>
+                      <span className="font-mono text-xs text-slate-600">fat {d.fatigue_at_break.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           ) : (
-            <div className="card h-64 flex items-center justify-center text-gray-600 text-sm">
+            <div className="card h-64 flex items-center justify-center text-slate-600 text-sm">
               Run a simulation to see the session timeline
             </div>
           )}

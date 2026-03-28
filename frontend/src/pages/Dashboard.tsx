@@ -15,32 +15,32 @@ export default function Dashboard() {
   }, [])
 
   const cards = [
-    { label: 'Chromosome Fitness', value: fitness != null ? fitness.toFixed(4) : 'None', sub: fitness != null ? 'Evolved chromosome loaded' : 'Run evolution first', color: 'text-indigo-400' },
+    { label: 'Chromosome Fitness', value: fitness != null ? fitness.toFixed(4) : 'None', sub: fitness != null ? 'Evolved chromosome loaded' : 'Run evolution first', color: 'text-sky-400' },
     { label: 'Total Decisions', value: totalDecisions.toString(), sub: 'This session', color: 'text-show' },
-    { label: 'Users', value: health?.users ?? '...', sub: 'Synthetic profiles', color: 'text-blue-400' },
-    { label: 'Ads', value: health?.ads ?? '...', sub: '8 categories', color: 'text-purple-400' },
+    { label: 'Users', value: health?.users ?? '—', sub: 'Synthetic profiles', color: 'text-slate-300' },
+    { label: 'Ads', value: health?.ads ?? '—', sub: '8 categories', color: 'text-slate-300' },
   ]
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-gray-400 mt-1">AdaptAd: human-centered ad decision system</p>
+      <div className="border-b border-slate-800 pb-5">
+        <h1 className="text-xl font-semibold text-slate-100">Dashboard</h1>
+        <p className="text-sm text-slate-500 mt-1">Human-centered ad decision system powered by genetic algorithms</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((c) => (
           <div key={c.label} className="card">
-            <p className="label mb-1">{c.label}</p>
-            <p className={`text-3xl font-bold font-mono ${c.color}`}>{c.value}</p>
-            <p className="text-xs text-gray-500 mt-1">{c.sub}</p>
+            <p className="label mb-2">{c.label}</p>
+            <p className={`text-2xl font-bold font-mono ${c.color}`}>{c.value}</p>
+            <p className="text-xs text-slate-500 mt-1.5">{c.sub}</p>
           </div>
         ))}
       </div>
 
       <div className="card">
-        <h2 className="font-semibold mb-3">Quick Actions</h2>
-        <div className="flex flex-wrap gap-3">
+        <h2 className="text-sm font-medium text-slate-300 mb-3">Quick Actions</h2>
+        <div className="flex flex-wrap gap-2">
           <button className="btn-primary" onClick={() => navigate('/evolve')}>Run Evolution</button>
           <button className="btn-secondary" onClick={() => navigate('/decide')}>Try a Decision</button>
           <button className="btn-secondary" onClick={() => navigate('/simulate')}>Simulate Session</button>
@@ -50,23 +50,31 @@ export default function Dashboard() {
       </div>
 
       <div className="card">
-        <h2 className="font-semibold mb-2">Decision Color Guide</h2>
-        <div className="flex flex-wrap gap-4 text-sm">
+        <h2 className="text-sm font-medium text-slate-300 mb-3">Decision States</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(['SHOW', 'SOFTEN', 'DELAY', 'SUPPRESS'] as const).map((d) => (
-            <span key={d} className={`font-semibold ${
-              d === 'SHOW' ? 'text-show' : d === 'SOFTEN' ? 'text-soften' : d === 'DELAY' ? 'text-delay' : 'text-suppress'
-            }`}>{d}</span>
+            <div key={d} className={`rounded-lg px-3 py-2 border text-xs font-medium ${
+              d === 'SHOW'     ? 'bg-show/10 border-show/20 text-show' :
+              d === 'SOFTEN'   ? 'bg-soften/10 border-soften/20 text-soften' :
+              d === 'DELAY'    ? 'bg-delay/10 border-delay/20 text-delay' :
+                                 'bg-suppress/10 border-suppress/20 text-suppress'
+            }`}>
+              <p className="font-semibold tracking-wide">{d}</p>
+              <p className="text-xs opacity-70 mt-0.5 font-normal">
+                {d === 'SHOW' ? 'Favorable conditions' :
+                 d === 'SOFTEN' ? 'Show shorter version' :
+                 d === 'DELAY' ? 'Wait for better moment' :
+                 'Skip entirely'}
+              </p>
+            </div>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          SHOW = favorable conditions. SOFTEN = shorter version. DELAY = wait for better moment. SUPPRESS = skip entirely.
-        </p>
       </div>
 
       {genes && (
         <div className="card">
-          <h2 className="font-semibold mb-1">Active Chromosome</h2>
-          <p className="text-xs font-mono text-gray-400">[{genes.map((g) => g.toFixed(3)).join(', ')}]</p>
+          <h2 className="text-sm font-medium text-slate-300 mb-2">Active Chromosome</h2>
+          <p className="text-xs font-mono text-slate-500 break-all">[{genes.map((g) => g.toFixed(3)).join(', ')}]</p>
         </div>
       )}
     </div>

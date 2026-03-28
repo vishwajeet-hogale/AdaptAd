@@ -12,7 +12,6 @@ export default function Evolution() {
   const chromosomeGenes = useStore((s) => s.chromosomeGenes)
   const chromosomeFitness = useStore((s) => s.chromosomeFitness)
 
-  // Clear stale job ID from previous session on mount.
   useEffect(() => { setActiveJobId(null) }, [])
 
   const [history, setHistory] = useState<GenPoint[]>([])
@@ -71,55 +70,65 @@ export default function Evolution() {
   const displayGenes = finalGenes ?? chromosomeGenes
   const currentBest = history.length > 0 ? history[history.length - 1].best_fitness : null
 
+  const statusColor =
+    status === 'converged' ? 'text-show' :
+    status === 'running'   ? 'text-sky-400' :
+    status === 'error'     ? 'text-suppress' :
+    'text-slate-400'
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="border-b border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Evolution</h1>
-          <p className="text-sm text-gray-400 mt-1">Evolve the 8-gene chromosome via genetic algorithm</p>
+          <h1 className="text-xl font-semibold text-slate-100">Evolution</h1>
+          <p className="text-sm text-slate-500 mt-1">Evolve the 8-gene chromosome via genetic algorithm</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button className="btn-secondary" onClick={loadBest}>Load Best Saved</button>
           {status === 'running' || status === 'queued'
             ? <button className="btn-danger" onClick={stopEvolution}>Stop</button>
             : <button className="btn-primary" onClick={startEvolution} disabled={status === 'starting'}>
-                {status === 'starting' ? 'Starting...' : 'Start Evolution'}
+                {status === 'starting' ? 'Starting…' : 'Start Evolution'}
               </button>
           }
         </div>
       </div>
 
-      {error && <div className="card border-red-700/40 text-red-400 text-sm">{error}</div>}
+      {error && (
+        <div className="card border-red-800/40 bg-red-950/20 text-red-400 text-sm">{error}</div>
+      )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card text-center">
-          <p className="label mb-1">Status</p>
-          <p className={`font-semibold capitalize ${status === 'converged' ? 'text-show' : status === 'running' ? 'text-soften' : status === 'error' ? 'text-suppress' : 'text-gray-400'}`}>{status}</p>
+          <p className="label mb-2">Status</p>
+          <p className={`font-medium capitalize ${statusColor}`}>{status}</p>
         </div>
         <div className="card text-center">
-          <p className="label mb-1">Generation</p>
-          <p className="font-mono text-xl">{history.length}</p>
+          <p className="label mb-2">Generation</p>
+          <p className="font-mono text-xl text-slate-200">{history.length}</p>
         </div>
         <div className="card text-center">
-          <p className="label mb-1">Best Fitness</p>
-          <p className="font-mono text-xl text-indigo-400">{currentBest?.toFixed(4) ?? chromosomeFitness?.toFixed(4) ?? '—'}</p>
+          <p className="label mb-2">Best Fitness</p>
+          <p className="font-mono text-xl text-sky-400">
+            {currentBest?.toFixed(4) ?? chromosomeFitness?.toFixed(4) ?? '—'}
+          </p>
         </div>
       </div>
 
       <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">Fitness over Generations</h2>
-          <span className="text-xs text-gray-500">Diversity: {(diversity * 100).toFixed(1)}%</span>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-medium text-slate-300">Fitness over Generations</h2>
+          <span className="text-xs text-slate-500 font-mono">Diversity: {(diversity * 100).toFixed(1)}%</span>
         </div>
         {history.length > 0
           ? <FitnessChart data={history} />
-          : <div className="h-48 flex items-center justify-center text-gray-600 text-sm">Start evolution to see live chart</div>
+          : <div className="h-48 flex items-center justify-center text-slate-600 text-sm">Start evolution to see live chart</div>
         }
       </div>
 
       {displayGenes && (
         <div className="card">
-          <h2 className="font-semibold mb-3">Chromosome Genes</h2>
+          <h2 className="text-sm font-medium text-slate-300 mb-4">Chromosome Genes</h2>
           <ChromosomeViz genes={displayGenes} fitness={chromosomeFitness} />
         </div>
       )}
