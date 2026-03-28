@@ -41,27 +41,27 @@ export default function DecisionExplorer() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-800 pb-5">
-        <h1 className="text-xl font-semibold text-slate-100">Decision Explorer</h1>
-        <p className="text-sm text-slate-500 mt-1">Run a single ad decision and inspect both agent scores</p>
+      <div className="page-header">
+        <h1 className="page-title">Decision Explorer</h1>
+        <p className="page-sub">Run a single ad decision and inspect both agent scores</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium text-slate-300">Context</h2>
+          <h2 className="section-title">Context</h2>
           <div>
             <label className="label">User</label>
             <select className="select-input w-full mt-1" value={userId} onChange={(e) => setUserId(Number(e.target.value))}>
               {users.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.age_group})</option>)}
             </select>
-            {user && <p className="text-xs text-slate-500 mt-1">Interests: {user.interests.join(', ')} · Fatigue: {user.fatigue_level.toFixed(2)}</p>}
+            {user && <p className="text-xs text-zinc-500 mt-1.5">Interests: {user.interests.join(', ')} · Fatigue: {user.fatigue_level.toFixed(2)}</p>}
           </div>
           <div>
             <label className="label">Ad</label>
             <select className="select-input w-full mt-1" value={adId} onChange={(e) => setAdId(e.target.value)}>
               {ads.map((a) => <option key={a.id} value={a.id}>{a.id} — {a.category} ({a.advertiser})</option>)}
             </select>
-            {ad && <p className="text-xs text-slate-500 mt-1">{ad.duration_seconds}s · {ad.creative_type} · priority {ad.priority.toFixed(2)}</p>}
+            {ad && <p className="text-xs text-zinc-500 mt-1.5">{ad.duration_seconds}s · {ad.creative_type} · priority {ad.priority.toFixed(2)}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -78,11 +78,11 @@ export default function DecisionExplorer() {
             </div>
             <div>
               <label className="label">Ads Shown — {adsShown}</label>
-              <input type="range" min={0} max={5} value={adsShown} onChange={(e) => setAdsShown(Number(e.target.value))} className="w-full mt-2 accent-sky-500" />
+              <input type="range" min={0} max={5} value={adsShown} onChange={(e) => setAdsShown(Number(e.target.value))} className="w-full mt-2 accent-violet-500" />
             </div>
             <div>
               <label className="label">Session Fatigue — {fatigue.toFixed(2)}</label>
-              <input type="range" min={0} max={1} step={0.05} value={fatigue} onChange={(e) => setFatigue(Number(e.target.value))} className="w-full mt-2 accent-sky-500" />
+              <input type="range" min={0} max={1} step={0.05} value={fatigue} onChange={(e) => setFatigue(Number(e.target.value))} className="w-full mt-2 accent-violet-500" />
             </div>
           </div>
           <button className="btn-primary w-full" onClick={runDecision} disabled={loading || !adId}>
@@ -101,18 +101,18 @@ export default function DecisionExplorer() {
                 </div>
                 <div className="text-right">
                   <p className="label mb-2">Combined Score</p>
-                  <p className="font-mono text-2xl font-bold text-slate-200">{result.combined_score.toFixed(3)}</p>
+                  <p className="font-mono text-2xl font-bold text-zinc-100">{result.combined_score.toFixed(3)}</p>
                 </div>
               </div>
               <AgentPanel score={result.user_advocate} side="user" />
               <AgentPanel score={result.advertiser_advocate} side="advertiser" />
               <div className="card">
                 <p className="label mb-2">Negotiation Summary</p>
-                <p className="text-sm text-slate-400 leading-relaxed">{result.reasoning}</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{result.reasoning}</p>
               </div>
             </>
           ) : (
-            <div className="card h-48 flex items-center justify-center text-slate-600 text-sm">
+            <div className="card h-48 flex items-center justify-center text-zinc-600 text-sm">
               Run a decision to see results
             </div>
           )}

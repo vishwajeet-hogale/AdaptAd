@@ -13,10 +13,10 @@ const links = [
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+  `px-3.5 py-2 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200 touch-manipulation ${
     isActive
-      ? 'bg-slate-800 text-sky-400 ring-1 ring-sky-500/25'
-      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+      ? 'bg-violet-600/20 text-violet-300 ring-1 ring-violet-500/40 shadow-sm shadow-violet-900/30'
+      : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5 active:bg-white/10'
   }`
 
 export default function NavBar() {
@@ -24,11 +24,11 @@ export default function NavBar() {
   const [open, setOpen] = useState(false)
 
   return (
-    <nav className="bg-slate-950 border-b border-slate-800/80 sticky top-0 z-50">
+    <nav className="bg-[#090914]/80 backdrop-blur-md border-b border-violet-900/30 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center h-14 gap-2">
           {/* Brand */}
-          <span className="font-semibold text-sky-400 mr-4 text-sm tracking-widest uppercase shrink-0">
+          <span className="font-bold text-sm tracking-widest uppercase shrink-0 mr-4 bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
             AdaptAd
           </span>
 
@@ -43,9 +43,9 @@ export default function NavBar() {
 
           {/* Fitness pill — desktop */}
           {fitness != null && (
-            <div className="hidden md:flex items-center gap-1.5 ml-auto shrink-0 bg-slate-900 border border-slate-800 rounded-full px-3 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
-              <span className="text-xs text-slate-400 font-mono">
+            <div className="hidden md:flex items-center gap-2 ml-auto shrink-0 bg-violet-900/20 border border-violet-700/30 rounded-full px-3.5 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-sm shadow-cyan-400/50" />
+              <span className="text-xs text-cyan-300 font-mono font-medium">
                 {fitness.toFixed(4)}
               </span>
             </div>
@@ -53,7 +53,7 @@ export default function NavBar() {
 
           {/* Hamburger — mobile */}
           <button
-            className="md:hidden ml-auto p-2 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            className="md:hidden ml-auto p-2.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
             onClick={() => setOpen((o) => !o)}
             aria-label="Toggle navigation"
           >
@@ -69,17 +69,17 @@ export default function NavBar() {
 
       {/* Mobile drawer */}
       {open && (
-        <div className="md:hidden border-t border-slate-800 bg-slate-950 px-4 py-3 space-y-0.5">
+        <div className="md:hidden border-t border-violet-900/30 bg-[#090914]/95 px-4 py-3 space-y-0.5">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               end={l.to === '/'}
               className={({ isActive }) =>
-                `block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                `block px-3.5 py-3 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200 touch-manipulation min-h-[44px] ${
                   isActive
-                    ? 'bg-slate-800 text-sky-400'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                    ? 'bg-violet-600/20 text-violet-300 ring-1 ring-violet-500/30'
+                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5 active:bg-white/10'
                 }`
               }
               onClick={() => setOpen(false)}
@@ -88,8 +88,8 @@ export default function NavBar() {
             </NavLink>
           ))}
           {fitness != null && (
-            <p className="px-3 pt-2 text-xs text-slate-500 font-mono border-t border-slate-800 mt-2">
-              Fitness: <span className="text-sky-400">{fitness.toFixed(4)}</span>
+            <p className="px-3 pt-2.5 text-xs text-zinc-500 font-mono border-t border-violet-900/30 mt-2">
+              Fitness: <span className="text-cyan-400">{fitness.toFixed(4)}</span>
             </p>
           )}
         </div>

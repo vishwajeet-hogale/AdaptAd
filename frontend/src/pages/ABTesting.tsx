@@ -10,7 +10,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   return (
     <div className="flex gap-1">
       {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} onClick={() => onChange(n)} className={`text-lg transition-colors ${n <= value ? 'text-yellow-400' : 'text-slate-700 hover:text-slate-500'}`}>★</button>
+        <button key={n} onClick={() => onChange(n)} className={`text-lg transition-colors ${n <= value ? 'text-yellow-400' : 'text-zinc-700 hover:text-zinc-500'}`}>★</button>
       ))}
     </div>
   )
@@ -19,20 +19,20 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
 function SessionView({ label, breaks, rating, onRate }: { label: string; breaks: Break[]; rating: Rating; onRate: (field: keyof Rating, v: number) => void }) {
   return (
     <div className="card flex-1 min-w-0">
-      <h3 className="text-sm font-medium text-slate-300 mb-3">Session {label}</h3>
+      <h3 className="section-title mb-3">Session {label}</h3>
       <div className="space-y-1 mb-4 max-h-48 overflow-y-auto">
         {breaks.length === 0
-          ? <p className="text-slate-600 text-sm">No ad breaks</p>
+          ? <p className="text-zinc-600 text-sm">No ad breaks</p>
           : breaks.map((b, i) => (
               <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-slate-600 w-10 font-mono text-xs">{b.break_minute}m</span>
+                <span className="text-zinc-600 w-10 font-mono text-xs">{b.break_minute}m</span>
                 <DecisionBadge decision={b.decision} size="sm" />
-                <span className="text-slate-500 text-xs">{b.ad_category}</span>
+                <span className="text-zinc-500 text-xs">{b.ad_category}</span>
               </div>
             ))
         }
       </div>
-      <div className="border-t border-slate-800 pt-3 space-y-3">
+      <div className="border-t border-violet-900/30 pt-3 space-y-3">
         <div className="flex items-center justify-between">
           <span className="label">Annoyance</span>
           <StarRating value={rating.annoyance} onChange={(v) => onRate('annoyance', v)} />
@@ -95,10 +95,10 @@ export default function ABTesting() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">A/B Testing</h1>
-          <p className="text-sm text-slate-500 mt-1">Compare AdaptAd against random placement. Labels are randomized to prevent bias.</p>
+          <h1 className="page-title">A/B Testing</h1>
+          <p className="page-sub">Compare AdaptAd against random placement. Labels are randomized to prevent bias.</p>
         </div>
         <button className="btn-primary shrink-0" onClick={startSession} disabled={loading}>
           {loading ? 'Loading…' : 'New Session'}
@@ -106,18 +106,18 @@ export default function ABTesting() {
       </div>
 
       {error && (
-        <div className="card border-red-800/40 bg-red-950/20 text-red-400 text-sm">{error}</div>
+        <div className="card border-red-700/40 bg-red-950/20 text-red-400 text-sm">{error}</div>
       )}
 
       {session && !submitted && (
         <>
           <div className="card">
-            <p className="text-sm text-slate-400">
-              User: <span className="text-slate-200">{session.user_name}</span>
-              <span className="text-slate-600 mx-2">·</span>
-              Content: <span className="text-slate-200">{session.content_title}</span>
+            <p className="text-sm text-zinc-400">
+              User: <span className="text-zinc-100 font-medium">{session.user_name}</span>
+              <span className="text-zinc-600 mx-2">·</span>
+              Content: <span className="text-zinc-100 font-medium">{session.content_title}</span>
             </p>
-            <p className="text-xs text-slate-600 mt-1">Rate each session honestly. You do not know which system generated which.</p>
+            <p className="text-xs text-zinc-600 mt-1.5">Rate each session honestly. You do not know which system generated which.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <SessionView label="X" breaks={session.session_x as Break[]} rating={xRating} onRate={(f, v) => updateRating('X', f, v)} />
@@ -129,7 +129,7 @@ export default function ABTesting() {
 
       {submitted && aggregate && (
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium text-show">Ratings submitted — aggregate results</h2>
+          <h2 className="section-title text-show">Ratings submitted — aggregate results</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="card bg-show/5 border-show/20">
               <p className="label mb-1">AdaptAd Wins</p>
@@ -141,7 +141,7 @@ export default function ABTesting() {
             </div>
             <div className="card">
               <p className="label mb-1">Ties</p>
-              <p className="text-2xl font-bold text-slate-400">{String(aggregate.ties)}</p>
+              <p className="text-2xl font-bold text-zinc-400">{String(aggregate.ties)}</p>
             </div>
           </div>
           <button className="btn-secondary" onClick={startSession}>Run Another Session</button>
@@ -149,7 +149,7 @@ export default function ABTesting() {
       )}
 
       {!session && !loading && (
-        <div className="card h-48 flex items-center justify-center text-slate-600 text-sm">
+        <div className="card h-48 flex items-center justify-center text-zinc-600 text-sm">
           Click "New Session" to start an A/B test
         </div>
       )}
