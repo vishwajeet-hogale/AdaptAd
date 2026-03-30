@@ -345,22 +345,27 @@ export default function ABTesting() {
             </div>
             <div className="space-y-1">
               <label className="label">Duration (minutes)</label>
-              <input type="number" min="10" max="240"
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 45"
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
                 value={durationStr}
                 onChange={(e) => {
-                  setDurationStr(e.target.value)
-                  const parsed = parseInt(e.target.value, 10)
-                  if (!isNaN(parsed) && parsed >= 10) {
+                  const raw = e.target.value.replace(/[^0-9]/g, '')
+                  setDurationStr(raw)
+                  const parsed = parseInt(raw, 10)
+                  if (!isNaN(parsed) && parsed >= 10 && parsed <= 240) {
                     setCustom((c) => ({ ...c, show_duration_minutes: parsed }))
                   }
                 }}
                 onBlur={() => {
                   const parsed = parseInt(durationStr, 10)
-                  const clamped = isNaN(parsed) ? 45 : Math.max(10, Math.min(240, parsed))
+                  const clamped = isNaN(parsed) || parsed < 10 ? 45 : Math.min(240, parsed)
                   setDurationStr(String(clamped))
                   setCustom((c) => ({ ...c, show_duration_minutes: clamped }))
-                }} />
+                }}
+              />
               <p className="text-xs text-slate-600">10–240 minutes</p>
             </div>
           </div>
