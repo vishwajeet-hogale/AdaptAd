@@ -212,12 +212,14 @@ export default function ABTesting() {
 
   // Determine this-session winner for the reveal
   let thisSessionWinner: 'adaptad' | 'baseline' | 'tie' | null = null
+  let adaptadScore = 0
+  let baselineScore = 0
   if (sessionDetail) {
     const xIsAdaptAd = sessionDetail.x_is_adaptad
     const adaptadRating = xIsAdaptAd ? xRating : yRating
     const baselineRating = xIsAdaptAd ? yRating : xRating
-    const adaptadScore = adaptadRating.willingness + adaptadRating.relevance - adaptadRating.annoyance
-    const baselineScore = baselineRating.willingness + baselineRating.relevance - baselineRating.annoyance
+    adaptadScore = adaptadRating.willingness + adaptadRating.relevance - adaptadRating.annoyance
+    baselineScore = baselineRating.willingness + baselineRating.relevance - baselineRating.annoyance
     thisSessionWinner = adaptadScore > baselineScore ? 'adaptad' : adaptadScore < baselineScore ? 'baseline' : 'tie'
   }
 
@@ -376,49 +378,78 @@ export default function ABTesting() {
           </div>
 
           {/* This session verdict */}
-          <div className={`card text-center py-5 ${
+          <div className={`card space-y-4 ${
             thisSessionWinner === 'adaptad' ? 'border-sky-500/40 bg-sky-900/10' :
             thisSessionWinner === 'baseline' ? 'border-red-500/40 bg-red-900/10' :
             'border-slate-600/40'
           }`}>
-            {thisSessionWinner === 'adaptad' && (
-              <>
-                <p className="text-sky-400 font-bold text-lg">AdaptAd won this round</p>
-                <p className="text-xs text-slate-500 mt-1">You preferred the human-centered ad policy — it showed fewer, more relevant ads at better moments.</p>
-              </>
-            )}
-            {thisSessionWinner === 'baseline' && (
-              <>
-                <p className="text-red-400 font-bold text-lg">Baseline won this round</p>
-                <p className="text-xs text-slate-500 mt-1">You preferred the random policy this time. Run more sessions — a single result can go either way by chance.</p>
-              </>
-            )}
-            {thisSessionWinner === 'tie' && (
-              <>
-                <p className="text-slate-300 font-bold text-lg">This round was a tie</p>
-                <p className="text-xs text-slate-500 mt-1">Both sessions scored equally. Run more sessions to see a pattern emerge.</p>
-              </>
-            )}
+            <div>
+              {thisSessionWinner === 'adaptad' && <p className="text-sky-400 font-bold text-lg">AdaptAd won this round</p>}
+              {thisSessionWinner === 'baseline' && <p className="text-red-400 font-bold text-lg">Baseline won this round</p>}
+              {thisSessionWinner === 'tie' && <p className="text-slate-300 font-bold text-lg">This round was a tie</p>}
+            </div>
+
+            {/* Score breakdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1">
+                <p className="text-xs text-sky-400 font-semibold">AdaptAd score: <span className="font-mono text-white">{adaptadScore > 0 ? '+' : ''}{adaptadScore} / 10</span></p>
+                <p className="text-xs text-slate-500">Uses your profile (fatigue, interests, time of day, session depth) to decide <em>when</em> and <em>whether</em> to show each ad. It can choose to SHOW, SOFTEN (shorter ad), DELAY, or SUPPRESS.</p>
+              </div>
+              <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1">
+                <p className="text-xs text-slate-300 font-semibold">Random baseline score: <span className="font-mono text-white">{baselineScore > 0 ? '+' : ''}{baselineScore} / 10</span></p>
+                <p className="text-xs text-slate-500">No intelligence — randomly picks SHOW or SUPPRESS for every ad opportunity with no knowledge of who you are or what you're watching.</p>
+              </div>
+            </div>
+
+            {/* How the score works */}
+            <div className="bg-slate-800/40 rounded-xl px-4 py-3 text-xs text-slate-400 leading-relaxed">
+              <p className="text-slate-200 font-semibold mb-1">How the score is calculated</p>
+              <p>
+                Score = <span className="text-sky-400">Willingness to continue</span> + <span className="text-sky-400">Relevance</span> − <span className="text-red-400">Annoyance</span>.
+                Each metric is 1–5, so scores range from −3 (very annoying, irrelevant, would quit) to +9 (not annoying, very relevant, would keep watching).
+                The system with the higher score wins the round.
+              </p>
+            </div>
+
+            {/* What winning means */}
+            <div className="bg-slate-800/40 rounded-xl px-4 py-3 text-xs text-slate-400 leading-relaxed">
+              <p className="text-slate-200 font-semibold mb-1">What does a win mean?</p>
+              {thisSessionWinner === 'adaptad' && (
+                <p>AdaptAd's evolved chromosome made better ad decisions for this user and content. By timing ads carefully — suppressing them when you're fatigued, delaying them during intense scenes, only showing relevant ones — it produced a less annoying, more relevant viewing experience than random placement. This is the hypothesis (H1) we're testing: that an evolved policy beats a dumb baseline.</p>
+              )}
+              {thisSessionWinner === 'baseline' && (
+                <p>The random baseline happened to score higher this round. This can occur — random placement sometimes gets lucky and shows the right ad at the right moment purely by chance. One session isn't enough to draw conclusions; run more sessions to see if AdaptAd pulls ahead consistently.</p>
+              )}
+              {thisSessionWinner === 'tie' && (
+                <p>Both policies scored identically this round. This usually happens when the content has very few ad breaks, or your ratings were similar for both sessions. Run more sessions to build a clearer picture.</p>
+              )}
+            </div>
           </div>
 
           {/* Running aggregate */}
           <div className="card space-y-4">
             <div>
               <h2 className="section-title mb-1">Running Totals</h2>
-              <p className="text-xs text-slate-500">Across all sessions completed so far. The more sessions, the more reliable the result.</p>
+              <p className="text-xs text-slate-500">
+                Across all sessions completed in this browser session. The more sessions you run, the more statistically meaningful the result.
+                If AdaptAd consistently wins, it validates H1: the GA-evolved policy produces a measurably better viewing experience than random ad placement.
+              </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="card bg-show/5 border-show/20 text-center">
                 <p className="label mb-1">AdaptAd Wins</p>
                 <p className="text-3xl font-bold text-show">{String(aggregate.adaptad_wins)}</p>
+                <p className="text-xs text-slate-600 mt-2">Rounds where the evolved policy was preferred</p>
               </div>
               <div className="card bg-suppress/5 border-suppress/20 text-center">
                 <p className="label mb-1">Baseline Wins</p>
                 <p className="text-3xl font-bold text-suppress">{String(aggregate.baseline_wins)}</p>
+                <p className="text-xs text-slate-600 mt-2">Rounds where random placement was preferred</p>
               </div>
               <div className="card text-center">
                 <p className="label mb-1">Ties</p>
                 <p className="text-3xl font-bold text-zinc-400">{String(aggregate.ties)}</p>
+                <p className="text-xs text-slate-600 mt-2">Equal scores — no winner</p>
               </div>
             </div>
           </div>
