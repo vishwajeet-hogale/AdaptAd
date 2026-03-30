@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..state import ContentItem, ContentMood
-from .constants import GENRES
+from .constants import GENRES, COUNTRY_LANGUAGE_MAP
 
 DEFAULT_SEED = 42
 
@@ -365,6 +365,28 @@ def generate_content_library(
         item_id += 1
 
     return items[:count]
+
+
+def pick_content_for_user(
+    user, content_items: list, rng: random.Random, native_boost: float = 3.0
+) -> "ContentItem":
+    """
+    Choose a content item biased toward the user's native language(s).
+
+    Items in the user's native language (non-English) are weighted native_boost× higher.
+    English content stays at 1.0. Foreign content the user is unlikely to prefer: 0.3×.
+    """
+    country = getattr(user, "country", "")
+    native_langs = COUNTRY_LANGUAGE_MAP.get(country, ["English"])
+    weights = []
+    for item in content_items:
+        if item.language in native_langs and item.language != "English":
+            weights.append(native_boost)
+        elif item.language == "English":
+            weights.append(1.0)
+        else:
+            weights.append(0.3)
+    return rng.choices(content_items, weights=weights, k=1)[0]
 
 
 def load_or_generate_content(

@@ -86,6 +86,21 @@ COUNTRIES = [
 # Sampling weights — rough streaming platform audience proportions.
 COUNTRY_WEIGHTS = [0.22, 0.18, 0.08, 0.08, 0.07, 0.06, 0.07, 0.06, 0.05, 0.05, 0.04, 0.04]
 
+COUNTRY_LANGUAGE_MAP: dict[str, list[str]] = {
+    "USA":         ["English"],
+    "UK":          ["English"],
+    "Australia":   ["English"],
+    "Nigeria":     ["English"],
+    "Germany":     ["German", "English"],
+    "France":      ["French", "English"],
+    "Japan":       ["Japanese", "English"],
+    "South Korea": ["Korean", "English"],
+    "India":       ["Hindi", "English"],
+    "Brazil":      ["Portuguese", "English"],
+    "Mexico":      ["Spanish", "English"],
+    "China":       ["Mandarin", "English"],
+}
+
 COUNTRY_NAME_POOLS: dict[str, dict[str, list[str]]] = {
     "USA": {
         "first": ["Alex", "Jordan", "Morgan", "Taylor", "Casey", "Riley", "Avery", "Quinn",

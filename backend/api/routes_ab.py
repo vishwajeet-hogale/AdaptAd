@@ -21,7 +21,7 @@ from ..agents.negotiator import negotiate
 from ..simulation.session import simulate_session, apply_decision
 from ..simulation.fatigue import should_force_suppress
 from ..state import AdDecision, Chromosome, ContentMood, ContentItem, Season, TimeOfDay, UserProfile
-from ..data.content_library import GENRE_MOODS, _generate_intensity_curve, _natural_break_points
+from ..data.content_library import GENRE_MOODS, _generate_intensity_curve, _natural_break_points, pick_content_for_user
 from ..db.database import save_ab_session_sync, save_ab_rating_sync, get_ab_history_sync
 from .routes_data import get_users, get_ads, get_content
 from .routes_decide import get_chromosome
@@ -143,7 +143,7 @@ def start_ab_session(req: ABStartRequest):
     rng = random.Random(req.seed)
 
     user = next((u for u in users if u.id == req.user_id), None) if req.user_id else rng.choice(users)
-    content = next((c for c in content_items if c.id == req.content_id), None) if req.content_id else rng.choice(content_items)
+    content = next((c for c in content_items if c.id == req.content_id), None) if req.content_id else pick_content_for_user(user, content_items, rng)
 
     if user is None:
         raise HTTPException(status_code=404, detail=f"User {req.user_id} not found.")
