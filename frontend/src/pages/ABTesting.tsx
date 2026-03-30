@@ -124,6 +124,7 @@ const DEFAULT_CUSTOM = {
   show_duration_minutes: 45,
   is_series: false,
 }
+const DEFAULT_DURATION_STR = '45'
 
 export default function ABTesting() {
   const [session, setSession] = useState<Session | null>(null)
@@ -139,6 +140,7 @@ export default function ABTesting() {
   const [history, setHistory] = useState<Record<string, unknown>[] | null>(null)
   const [historyAggregate, setHistoryAggregate] = useState<Record<string, unknown> | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [durationStr, setDurationStr] = useState(DEFAULT_DURATION_STR)
 
   useEffect(() => {
     abApi.history().then((r) => {
@@ -157,6 +159,7 @@ export default function ABTesting() {
     setSession(null); setSessionDetail(null); setSubmitted(false); setResults(null); setError(null)
     setXRating({ annoyance: 0, relevance: 0, willingness: 0 })
     setYRating({ annoyance: 0, relevance: 0, willingness: 0 })
+    setCustom(DEFAULT_CUSTOM); setDurationStr(DEFAULT_DURATION_STR)
   }
 
   async function startSession() {
@@ -199,15 +202,6 @@ export default function ABTesting() {
       setSubmitted(true)
     } catch { setError('Failed to submit ratings.') }
     finally { setLoading(false) }
-  }
-
-  function toggleInterest(cat: string) {
-    setCustom((c) => ({
-      ...c,
-      interests: c.includes(cat)
-        ? c.interests.filter((i) => i !== cat)
-        : [...c.interests, cat],
-    }))
   }
 
   function toggleInterestFixed(cat: string) {
@@ -314,8 +308,21 @@ export default function ABTesting() {
               <label className="label">Duration (minutes)</label>
               <input type="number" min="10" max="240"
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
-                value={custom.show_duration_minutes}
-                onChange={(e) => setCustom((c) => ({ ...c, show_duration_minutes: parseInt(e.target.value) || 45 }))} />
+                value={durationStr}
+                onChange={(e) => {
+                  setDurationStr(e.target.value)
+                  const parsed = parseInt(e.target.value, 10)
+                  if (!isNaN(parsed) && parsed >= 10) {
+                    setCustom((c) => ({ ...c, show_duration_minutes: parsed }))
+                  }
+                }}
+                onBlur={() => {
+                  const parsed = parseInt(durationStr, 10)
+                  const clamped = isNaN(parsed) ? 45 : Math.max(10, Math.min(240, parsed))
+                  setDurationStr(String(clamped))
+                  setCustom((c) => ({ ...c, show_duration_minutes: clamped }))
+                }} />
+              <p className="text-xs text-slate-600">10–240 minutes</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

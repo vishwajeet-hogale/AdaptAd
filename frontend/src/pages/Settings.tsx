@@ -94,8 +94,8 @@ export default function Settings() {
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-zinc-300 font-medium">Dark Mode</p>
-            <p className="text-xs text-zinc-600 mt-0.5">Always enabled</p>
+            <p className="text-sm text-slate-700 dark:text-zinc-300 font-medium">Dark Mode</p>
+            <p className="text-xs text-slate-400 dark:text-zinc-600 mt-0.5">Toggle between dark and light theme</p>
           </div>
           <button
             onClick={() => updateSettings({ darkMode: !settings.darkMode })}
