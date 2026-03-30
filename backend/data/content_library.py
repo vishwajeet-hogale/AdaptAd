@@ -267,34 +267,47 @@ def _natural_break_points(
     """
     Place break points at low-intensity minutes, avoiding first/last 5 min.
 
-    Episodes (22-60 min) get 2-4 breaks.
-    Movies (80+ min) get 4-7 breaks.
+    Both the minimum gap between breaks and the target number of breaks scale
+    with the usable content window so short episodes (20 min) and long movies
+    (120 min) each get a realistic spread.
 
-    A minimum gap of 8 minutes between breaks is enforced so ads never appear
-    back-to-back. Candidates are weighted toward low-intensity moments.
+    Usable window  | min_gap | max breaks (series / movie)
+    ≤ 15 min       |  5 min  |  1 / 2
+    ≤ 40 min       |  8 min  |  3 / 4
+    > 40 min       | 12 min  |  3 / 6
     """
     buffer = 5
-    min_gap = 8  # minimum minutes between consecutive ad breaks
     start = buffer
     end = duration - buffer
     if end <= start:
         return []
-    eligible = list(range(start, end + 1))
-    if not eligible:
-        return []
+
+    available = end - start  # usable minutes
+
+    # Scale min_gap to content length.
+    if available <= 15:
+        min_gap = 5
+    elif available <= 40:
+        min_gap = 8
+    else:
+        min_gap = 12
+
+    # Maximum breaks that can realistically fit with the gap constraint.
+    max_fits = max(1, available // min_gap)
 
     if is_series:
-        num_breaks = rng.randint(2, min(4, len(eligible)))
+        num_breaks = rng.randint(1, min(3, max_fits))
     else:
-        num_breaks = rng.randint(4, min(7, len(eligible)))
+        num_breaks = rng.randint(2, min(6, max_fits))
 
     # Build a weighted pool biased toward low-intensity moments.
+    eligible = list(range(start, end + 1))
     weighted = [(m, 1.0 / (intensity_curve[m] + 0.1)) for m in eligible]
     minutes = [m for m, _ in weighted]
     weights = [w for _, w in weighted]
 
     # Sample a large candidate pool then keep points that respect the min gap.
-    candidates = sorted(set(rng.choices(minutes, weights=weights, k=num_breaks * 10)))
+    candidates = sorted(set(rng.choices(minutes, weights=weights, k=max(num_breaks * 10, 30))))
     result: list[int] = []
     for m in candidates:
         if not result or m - result[-1] >= min_gap:
@@ -302,9 +315,9 @@ def _natural_break_points(
         if len(result) >= num_breaks:
             break
 
-    # If we couldn't fill num_breaks with the gap constraint, space evenly.
-    if len(result) < 2 and duration >= 2 * buffer + min_gap:
-        step = (end - start) // (num_breaks + 1)
+    # Fallback: evenly space using the adaptive gap if sampling didn't fill quota.
+    if len(result) < num_breaks:
+        step = max(min_gap, available // (num_breaks + 1))
         result = [start + step * i for i in range(1, num_breaks + 1) if start + step * i <= end]
 
     return sorted(result)
