@@ -292,22 +292,41 @@ export default function ABTesting() {
       )}
 
       {submitted && aggregate && (
-        <div className="card space-y-4">
-          <h2 className="section-title text-show">Ratings submitted — aggregate results</h2>
+        <div className="card space-y-5">
+          <div>
+            <h2 className="section-title text-show mb-1">Ratings submitted — aggregate results</h2>
+            <p className="text-xs text-slate-500">
+              A <span className="text-slate-300 font-medium">win</span> is awarded to whichever session scored higher on{' '}
+              <span className="text-sky-400">willingness to continue</span> +{' '}
+              <span className="text-sky-400">relevance</span> −{' '}
+              <span className="text-sky-400">annoyance</span> across all completed sessions.
+              The labels X and Y were randomised so you couldn't tell which system was which while rating.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="card bg-show/5 border-show/20">
               <p className="label mb-1">AdaptAd Wins</p>
-              <p className="text-2xl font-bold text-show">{String(aggregate.adaptad_wins)}</p>
+              <p className="text-3xl font-bold text-show">{String(aggregate.adaptad_wins)}</p>
+              <p className="text-xs text-slate-500 mt-2">Sessions where AdaptAd's human-centered policy was preferred — it showed fewer, more relevant ads at better moments.</p>
             </div>
             <div className="card bg-suppress/5 border-suppress/20">
               <p className="label mb-1">Baseline Wins</p>
-              <p className="text-2xl font-bold text-suppress">{String(aggregate.baseline_wins)}</p>
+              <p className="text-3xl font-bold text-suppress">{String(aggregate.baseline_wins)}</p>
+              <p className="text-xs text-slate-500 mt-2">Sessions where the random policy was preferred — it simply shows or suppresses ads at random with no user context.</p>
             </div>
             <div className="card">
               <p className="label mb-1">Ties</p>
-              <p className="text-2xl font-bold text-zinc-400">{String(aggregate.ties)}</p>
+              <p className="text-3xl font-bold text-zinc-400">{String(aggregate.ties)}</p>
+              <p className="text-xs text-slate-500 mt-2">Sessions where both policies scored equally. Run more sessions to break the tie.</p>
             </div>
           </div>
+
+          <div className="bg-slate-800/50 rounded-xl px-4 py-3 text-xs text-slate-400 leading-relaxed">
+            <span className="text-slate-200 font-semibold">How to read this: </span>
+            More AdaptAd wins means the GA-evolved chromosome is genuinely improving the viewing experience compared to random ad placement. Run more sessions to build statistical confidence — a single session is just one data point.
+          </div>
+
           <button className="btn-secondary" onClick={startSession}>Run Another Session</button>
         </div>
       )}
