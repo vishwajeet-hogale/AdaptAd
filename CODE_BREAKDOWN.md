@@ -631,42 +631,42 @@ Shows ads until `ads_shown_this_session >= cap`, then suppresses. Represents a c
 
 #### `score_user_advocate(user, ad, ctx, chromosome) → AgentScore`
 
-Computes a weighted sum of 7 factors, all modulated by chromosome genes:
+Computes a weighted sum of factors, all modulated by chromosome genes.
+No fixed base score — gene values are the primary drivers of the [0, 1] range.
 
-**Factor 1: Base Score**
-`base = 0.5` — neutral starting point
-
-**Factor 2: Relevance Bonus**
+**Factor 1: Ad Tolerance Base**
 ```python
-if ad.category in user.interests:
-    relevance_bonus = chromosome.relevance_weight * 0.8      # up to +0.8
-else:
-    relevance_bonus = 0.15 * chromosome.relevance_weight * 0.8  # small non-zero bonus
+tolerance_base = user.ad_tolerance * 0.20   # [0.00, 0.20]
 ```
-Even irrelevant ads get a small bonus because discovery value exists.
+`ad_tolerance` from UserProfile is now incorporated. High-tolerance users have a
+higher floor, reflecting that they are genuinely more receptive to advertising.
 
-**Factor 3: Fatigue Penalty**
+**Factor 2: Mood Bonus**
 ```python
-fatigue = get_effective_fatigue(user, ctx)
-fatigue_penalty = fatigue * chromosome.fatigue_weight * 1.5   # up to -1.5 (clamped)
+mood_bonus = clip(mood_modifier + 0.15, 0.0, 0.25)   # [0.00, 0.25]
 ```
-The 1.5 multiplier makes fatigue the most impactful single factor.
+Positive content moods improve ad receptiveness.
 
-**Factor 4: Timing Bonus**
+**Factor 3: Relevance Contribution**
 ```python
-if ctx.time_of_day.value == user.preferred_watch_time.value:
-    timing_bonus = chromosome.timing_weight * 0.3              # up to +0.3
-else:
-    timing_bonus = 0.0
+relevance_contribution = chromosome.relevance_weight * (0.40 if relevant else 0.05)
 ```
-Showing ads during the user's preferred watch time is better.
+Gene scales how much relevance matters. Irrelevant ads still get a small floor (0.05).
 
-**Factor 5: Session Depth Penalty**
+**Factor 4: Timing Contribution**
 ```python
-if ctx.ads_shown_this_session > 2:
-    session_penalty = 0.3 * chromosome.session_depth_factor    # up to -0.3
-elif ctx.ads_shown_this_session > 1:
-    session_penalty = 0.15 * chromosome.session_depth_factor   # up to -0.15
+timing_contribution = chromosome.timing_weight * (0.18 if time_matches else 0.0)
+```
+
+**Factor 5: Fatigue Penalty**
+```python
+fatigue_penalty = chromosome.fatigue_weight * session_fatigue * 0.55   # up to -0.55
+```
+Gene controls how sensitive the policy is to fatigue.
+
+**Factor 6: Session Depth Penalty**
+```python
+depth_penalty = chromosome.session_depth_factor * (0.28 if ads>2 else 0.14 if ads>1 else 0.0)
 ```
 The more ads already shown, the less acceptable new ones are.
 
@@ -694,17 +694,14 @@ binge_penalty = 0.08 * chromosome.session_depth_factor if ctx.is_binging else 0.
 
 #### `score_advertiser_advocate(user, ad, ctx, chromosome) → AgentScore`
 
-**Factor 1: Base Score**
-`base = 0.55` — slightly above neutral (advertisers are paying, so default is positive)
+No fixed base score — `category_boost` gene is the primary driver.
 
-**Factor 2: Relevance Boost**
+**Factor 1: Relevance Boost**
 ```python
-if ad.category in user.interests:
-    relevance_boost = chromosome.category_boost * 1.5    # up to +1.5 (clamped to 1.0)
-else:
-    relevance_boost = 0.0
+relevance_boost = chromosome.category_boost * (0.50 if relevant else 0.08)
 ```
-Relevant ads are significantly more valuable to advertisers (higher CTR expected).
+Relevant ads are more valuable (higher expected CTR). Irrelevant ads get a small
+floor (0.08) because impression value is never zero.
 
 **Factor 3: Engagement Boost**
 ```python
@@ -759,11 +756,14 @@ The 0.55/0.45 split means user welfare is weighted slightly more than advertiser
 
 **Step 2: Compute decision thresholds from chromosome**
 ```python
-show_thresh   = 0.45 + chromosome.frequency_threshold * 0.35   # range: [0.45, 0.80]
-soften_thresh = show_thresh - 0.15                               # range: [0.30, 0.65]
-delay_thresh  = soften_thresh - 0.15                             # range: [0.15, 0.50]
+show_thresh   = 0.35 + chromosome.frequency_threshold * 0.30    # range: [0.35, 0.65]
+soften_thresh = show_thresh   - 0.06 - chromosome.soften_threshold  * 0.14  # variable
+delay_thresh  = soften_thresh - 0.04 - chromosome.delay_probability * 0.10  # variable
 ```
-The chromosome's `frequency_threshold` gene shifts all three thresholds together. A high value (0.9) means only very high combined scores result in SHOW — more conservative. A low value (0.1) means SHOW happens even for mediocre combined scores — more aggressive.
+All three threshold-related genes are now active:
+- `frequency_threshold`: shifts the base SHOW bar (conservative vs aggressive)
+- `soften_threshold`: independently controls the width of the SOFTEN zone
+- `delay_probability`: independently controls the width of the DELAY zone
 
 **Step 3: Map combined score to decision**
 ```python
@@ -857,16 +857,17 @@ Same pattern for Advertiser Advocate. Computes all 7 factors as arrays, sums the
 
 #### `_determine_decision_vectorized(chromosome, combined) → np.ndarray`
 
-Maps combined score array to integer decision codes (0=SHOW, 1=SOFTEN, 2=DELAY, 3=SUPPRESS):
+Maps combined score array to integer decision codes (0=SHOW, 1=SOFTEN, 2=DELAY, 3=SUPPRESS).
+All three threshold-related genes are active — each controls an independent offset:
 ```python
-show_thresh = 0.45 + chromosome.frequency_threshold * 0.35
-soften_thresh = show_thresh - 0.15
-delay_thresh = soften_thresh - 0.15
+show_thresh   = 0.35 + chromosome.frequency_threshold * 0.30
+soften_thresh = show_thresh   - 0.06 - chromosome.soften_threshold  * 0.14
+delay_thresh  = soften_thresh - 0.04 - chromosome.delay_probability * 0.10
 
 decision = np.full(N, SUPPRESS_IDX)
-decision = np.where(combined >= delay_thresh, DELAY_IDX, decision)
+decision = np.where(combined >= delay_thresh,  DELAY_IDX,  decision)
 decision = np.where(combined >= soften_thresh, SOFTEN_IDX, decision)
-decision = np.where(combined >= show_thresh, SHOW_IDX, decision)
+decision = np.where(combined >= show_thresh,   SHOW_IDX,   decision)
 ```
 
 #### `_score_outcomes_vectorized(decisions, relevant, fatigue, ads_shown) → (sat_array, rev_array)`

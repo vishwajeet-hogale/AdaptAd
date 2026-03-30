@@ -179,17 +179,22 @@ AdOpportunity created  <-- user profile + ad candidate + session context
 │  │    USER ADVOCATE    │    │    ADVERTISER ADVOCATE      │    │
 │  │  (viewer protection)│    │    (advertiser value)       │    │
 │  │                     │    │                             │    │
-│  │  base = 0.5         │    │  base = 0.55                │    │
-│  │  + relevance_bonus  │    │  + relevance_boost          │    │
-│  │  - fatigue_penalty  │    │  + engagement_boost         │    │
-│  │  + timing_bonus     │    │  + primetime_boost (Avazu)  │    │
-│  │  - session_penalty  │    │  + priority_factor          │    │
-│  │  + mood_modifier    │    │  + seasonal_affinity        │    │
-│  │  - intensity_penalty│    │  + demographic_match        │    │
+│  │  No fixed base —    │    │  No fixed base —            │    │
+│  │  genes drive range  │    │  genes drive range          │    │
+│  │                     │    │                             │    │
+│  │  + ad_tolerance*0.2 │    │  + category_boost*          │    │
+│  │  + mood_bonus       │    │    (0.50 if relevant,       │    │
+│  │  + relevance_weight │    │     0.08 if not)            │    │
+│  │    *(0.40/0.05)     │    │  + engagement*0.25          │    │
+│  │  + timing_weight    │    │  + primetime (Avazu)        │    │
+│  │    *(0.18 if match) │    │  + priority_factor          │    │
+│  │  - fatigue_weight   │    │  + seasonal_affinity*0.12   │    │
+│  │    *fatigue*0.55    │    │  + demo_match*0.08          │    │
+│  │  - session_depth_   │    │                             │    │
+│  │    factor*(0/0.14/  │    │  score in [0, 1]            │    │
+│  │    0.28)            │    │                             │    │
+│  │  - intensity_penalty│    │                             │    │
 │  │  - binge_penalty    │    │                             │    │
-│  │                     │    │  All weights via chromosome │    │
-│  │  All weights via    │    │                             │    │
-│  │  chromosome genes   │    │  score in [0, 1]            │    │
 │  │                     │    │                             │    │
 │  │  score in [0, 1]    │    │                             │    │
 │  └──────────┬──────────┘    └─────────────┬───────────────┘    │
@@ -200,9 +205,9 @@ AdOpportunity created  <-- user profile + ad candidate + session context
 │                                                                 │
 │  combined = UA * 0.55 + ADV * 0.45                             │
 │                                                                 │
-│  show_thresh    = 0.45 + frequency_threshold_gene * 0.35       │
-│  soften_thresh  = show_thresh - 0.15                           │
-│  delay_thresh   = soften_thresh - 0.15                         │
+│  show_thresh    = 0.35 + frequency_threshold * 0.30            │
+│  soften_thresh  = show_thresh - 0.06 - soften_threshold * 0.14 │
+│  delay_thresh   = soften_thresh - 0.04 - delay_probability*0.10│
 │                                                                 │
 │  combined >= show_thresh   -> SHOW                             │
 │  combined >= soften_thresh -> SOFTEN                           │
@@ -255,8 +260,8 @@ AdOpportunity created  <-- user profile + ad candidate + session context
 │     - advertiser advocate only                                 │
 │                                                                 │
 │  5. Compute hypotheses                                         │
-│     H1: mean fitness > 0.65                                    │
-│     H2: mean fatigue < 0.40, mean relevance > 70%             │
+│     H1: mean fitness > 0.58                                    │
+│     H2: mean fatigue < 0.45, mean relevance > 65%             │
 │     H3: diversity index (Shannon entropy) > 0.15              │
 │                                                                 │
 │  6. Statistical tests                                          │
@@ -332,16 +337,19 @@ distributions.json
       |
       +---> hourly_ctr ─────────────> (available for future use)
 
-Chromosome (8 genes from GA)
+Chromosome (8 genes from GA) — all genes active
       |
-      +---> fatigue_weight ─────────> User Advocate fatigue_penalty
-      +---> relevance_weight ───────> User Advocate relevance_bonus
-      +---> timing_weight ──────────> User Advocate timing_bonus
-      +---> frequency_threshold ────> Negotiator show_threshold
-      +---> delay_probability ──────> (influences delay vs suppress)
-      +---> soften_threshold ───────> Negotiator soften_threshold
-      +---> category_boost ─────────> Advertiser Advocate relevance_boost
-      +---> session_depth_factor ───> User Advocate session_penalty + binge_penalty
+      +---> fatigue_weight ─────────> UA: penalty = fatigue_weight * session_fatigue * 0.55
+      +---> relevance_weight ───────> UA: bonus  = relevance_weight * (0.40 if relevant else 0.05)
+      +---> timing_weight ──────────> UA: bonus  = timing_weight * (0.18 if time_match else 0)
+      +---> frequency_threshold ────> Negotiator: show_thresh = 0.35 + gene * 0.30
+      +---> delay_probability ──────> Negotiator: delay zone width = 0.04 + gene * 0.10
+      +---> soften_threshold ───────> Negotiator: soften zone width = 0.06 + gene * 0.14
+      +---> category_boost ─────────> ADV: boost = category_boost * (0.50 if relevant else 0.08)
+      +---> session_depth_factor ───> UA: penalty scales with ads_shown (0 / 0.14 / 0.28)
+
+UserProfile.ad_tolerance ────────────> UA: tolerance_base = ad_tolerance * 0.20
+                                        Outcomes: SHOW satisfaction += clip(tolerance-0.5, 0, 0.15)
 ```
 
 ---

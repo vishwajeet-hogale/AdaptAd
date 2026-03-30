@@ -113,6 +113,83 @@ def _build_prompt(
     )
 
 
+_VALID_GENRES = {
+    "Action", "Comedy", "Drama", "Sci-Fi", "Horror",
+    "Documentary", "Romance", "Thriller", "Animation", "Fantasy"
+}
+
+
+def lookup_show_metadata(title: str) -> dict:
+    """
+    Use the LLM to infer genre, duration, and series/movie status from a show title.
+
+    Returns a dict with keys: genre, duration_minutes, is_series, description.
+    Falls back to safe defaults on any failure.
+    """
+    defaults = {
+        "genre": "Drama",
+        "duration_minutes": 45,
+        "is_series": True,
+        "description": "",
+        "source": "fallback",
+    }
+
+    if not title.strip():
+        return defaults
+
+    prompt = (
+        f'Given the title "{title}", provide metadata as JSON only — no explanation, no markdown.\n'
+        f'Respond with exactly this structure:\n'
+        f'{{"genre":"...","duration_minutes":N,"is_series":true/false,"description":"..."}}\n'
+        f'Rules:\n'
+        f'- genre must be one of: Action, Comedy, Drama, Sci-Fi, Horror, Documentary, Romance, Thriller, Animation, Fantasy\n'
+        f'- duration_minutes = episode length (in minutes) for series, full runtime for movies\n'
+        f'- is_series = true for TV series / anime, false for movies\n'
+        f'- description = one sentence synopsis, 15 words max\n'
+        f'If you do not recognise the title, make a best guess based on the name.'
+    )
+
+    cache_key = _cache_key(prompt)
+    raw = _llm_cache.get(cache_key)
+
+    if raw is None:
+        raw = _call_llm(prompt, provider="groq")
+        if raw is None:
+            raw = _call_llm(prompt, provider="gemini")
+        if raw is not None:
+            _llm_cache[cache_key] = raw
+
+    if raw is None:
+        return defaults
+
+    # Strip any markdown fences the model may have included.
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
+    try:
+        data = json.loads(raw)
+        genre = data.get("genre", "Drama")
+        if genre not in _VALID_GENRES:
+            genre = "Drama"
+        duration = int(data.get("duration_minutes", 45))
+        duration = max(10, min(240, duration))
+        is_series = bool(data.get("is_series", True))
+        description = str(data.get("description", ""))[:200]
+        return {
+            "genre": genre,
+            "duration_minutes": duration,
+            "is_series": is_series,
+            "description": description,
+            "source": "llm",
+        }
+    except Exception:
+        return defaults
+
+
 def enrich_with_llm_reasoning(
     result: NegotiationResult,
     user: Optional[UserProfile],

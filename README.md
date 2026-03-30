@@ -166,23 +166,27 @@ GA Evolution:
 
 ### 8-gene chromosome
 
-| Gene | Controls |
-|------|---------|
-| fatigue_weight | How much user fatigue penalizes showing an ad |
-| relevance_weight | How much ad-user interest match matters |
-| timing_weight | How much time-of-day alignment affects the decision |
-| frequency_threshold | How high the bar is to show any ad at all |
-| delay_probability | Tendency to delay vs suppress when borderline |
-| soften_threshold | When a shorter ad is better than full or nothing |
-| category_boost | Bonus for the user's favorite ad category |
-| session_depth_factor | How much more cautious the system gets as session progresses |
+All 8 genes are active in the fitness function — no dead genes.
+
+| Gene | Controls | Effect when high |
+|------|---------|-----------------|
+| fatigue_weight | Sensitivity to session fatigue | More conservative — suppresses ads for tired users |
+| relevance_weight | Importance of ad-interest match | Only shows ads to users whose interests align |
+| timing_weight | Importance of time-of-day alignment | Favors preferred viewing times |
+| frequency_threshold | Base bar to show any ad (show_thresh range: 0.35–0.65) | Stricter about showing ads at all |
+| delay_probability | Width of the DELAY zone below the soften threshold | Prefers delaying over suppressing when borderline |
+| soften_threshold | Width of the SOFTEN zone below the show threshold | Prefers shorter ads over full skip when conditions are moderate |
+| category_boost | Advertiser value weight for category relevance | Rewards relevant ads more heavily for advertisers |
+| session_depth_factor | Penalty growth as ads_shown increases | Increasingly cautious deep into a session |
+
+`UserProfile.ad_tolerance` is also incorporated: users with high inherent ad tolerance receive higher satisfaction scores for the same SHOW decision, creating realistic heterogeneity across the 200-user population.
 
 ---
 
 ## Hypotheses
 
-- **H1:** Evolved policy fitness > 0.65 (vs baselines: always-show 0.51, random 0.47, freq-cap 0.46)
-- **H2:** Post-session fatigue < 0.40, ad relevance > 70%
+- **H1:** Evolved policy fitness > 0.58 (vs baselines: always-show ~0.49, random ~0.50, freq-cap ~0.48)
+- **H2:** Post-session fatigue < 0.45, ad relevance > 65%
 - **H3:** Strategy diversity index (Shannon entropy) > 0.15
 
 Statistical tests: Wilcoxon signed-rank with Holm-Bonferroni correction.

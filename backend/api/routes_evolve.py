@@ -9,6 +9,7 @@ WS   /ws/evolve/{job_id}    WebSocket for real-time generation updates.
 """
 
 import asyncio
+import time
 import uuid
 from typing import Optional
 
@@ -68,6 +69,10 @@ def _run_evolution(job_id: str, max_generations: int, seed: int):
 
             if job.get("stop_requested"):
                 break
+
+            # Yield briefly so the WebSocket thread can drain the queue
+            # and stream each generation live rather than all at once.
+            time.sleep(0.05)
 
         # Save best chromosome.
         if engine.best_chromosome:

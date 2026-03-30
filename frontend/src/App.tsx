@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
@@ -7,8 +8,19 @@ import SessionSimulator from './pages/SessionSimulator'
 import BatchResults from './pages/BatchResults'
 import ABTesting from './pages/ABTesting'
 import Settings from './pages/Settings'
+import { useStore } from './store'
 
 export default function App() {
+  const darkMode = useStore((s) => s.settings.darkMode)
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
+
   return (
     <BrowserRouter>
       <Routes>

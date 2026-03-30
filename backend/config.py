@@ -20,9 +20,9 @@ class GAConfig:
     # Max delta +/- 0.15 per gene. Keeps mutations meaningful but bounded.
     mutation_strength: float = 0.3
     max_generations: int = 50
-    # Stop if best fitness improves by less than this over 10 generations.
-    convergence_threshold: float = 0.001
-    convergence_window: int = 10
+    # Stop if best fitness improves by less than this over 15 generations.
+    convergence_threshold: float = 0.0005
+    convergence_window: int = 15
     # Fitness = 60% user satisfaction + 40% revenue. Biased toward user welfare.
     fitness_user_weight: float = 0.6
     fitness_revenue_weight: float = 0.4
@@ -103,9 +103,9 @@ class LLMConfig:
 class SimulationConfig:
     """Session simulation parameters."""
 
-    num_users: int = 200
-    num_content_items: int = 100
-    num_ads: int = 80
+    num_users: int = 1000
+    num_content_items: int = 300
+    num_ads: int = 200
     # Never place an ad in the first or last 5 minutes of content.
     break_point_buffer_minutes: int = 5
     # Binge detection requires 2+ queued episodes.

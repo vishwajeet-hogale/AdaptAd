@@ -1,8 +1,9 @@
 """
 Synthetic user profile generator.
 
-Generates 200 users with age-weighted demographics and behavioral attributes.
-Grounded in MovieLens genre distributions where available.
+Generates globally diverse users with age-weighted demographics, behavioral
+attributes, and country-based names. Grounded in MovieLens genre distributions
+where available.
 """
 
 import random
@@ -17,6 +18,9 @@ from .constants import (
     GENRES,
     PROFESSIONS,
     TIME_OF_DAY_VALUES,
+    COUNTRIES,
+    COUNTRY_WEIGHTS,
+    COUNTRY_NAME_POOLS,
 )
 from .grounding import get_grounded_engagement_stats, get_content_preferences_from_movielens
 
@@ -28,10 +32,11 @@ def _age_group_to_interests(age_group: str, rng: random.Random) -> list[str]:
     """
     Map age group to plausible ad interest distribution.
 
-    Younger users skew toward tech and gaming. Older users skew toward
-    health and finance. Food and travel are universal.
+    13-17: heavy gaming/tech. 18-24: tech/gaming. Older: health/finance.
+    Food and travel are universal.
     """
     weights_by_age: dict[str, list[float]] = {
+        "13-17": [0.20, 0.08, 0.02, 0.18, 0.02, 0.08, 0.04, 0.38],  # gaming/tech/fashion dominant
         "18-24": [0.25, 0.10, 0.05, 0.15, 0.05, 0.10, 0.05, 0.25],
         "25-34": [0.20, 0.12, 0.10, 0.12, 0.10, 0.14, 0.08, 0.14],
         "35-44": [0.15, 0.14, 0.15, 0.10, 0.14, 0.14, 0.12, 0.06],
@@ -60,10 +65,11 @@ def _age_group_to_interests(age_group: str, rng: random.Random) -> list[str]:
 
 def _age_group_to_ad_tolerance(age_group: str, rng: random.Random) -> float:
     """
-    Older users tend to have lower tolerance for ads.
-    This is a simplification documented explicitly.
+    Teens have moderate-to-low tolerance (find ads annoying).
+    Older users tend toward lower tolerance as well.
     """
     base_by_age: dict[str, float] = {
+        "13-17": 0.40,
         "18-24": 0.55,
         "25-34": 0.50,
         "35-44": 0.45,
@@ -78,9 +84,10 @@ def _age_group_to_ad_tolerance(age_group: str, rng: random.Random) -> float:
 
 def _preferred_watch_time(age_group: str, rng: random.Random) -> TimeOfDay:
     """
-    Evening is peak time universally. Latenight skews younger.
+    Evening is peak time universally. Latenight skews younger/teens.
     """
     weights_by_age: dict[str, list[float]] = {
+        "13-17": [0.05, 0.20, 0.38, 0.37],   # teens: evening/latenight after school
         "18-24": [0.08, 0.15, 0.40, 0.37],
         "25-34": [0.10, 0.15, 0.50, 0.25],
         "35-44": [0.12, 0.18, 0.55, 0.15],
@@ -98,46 +105,40 @@ def _generate_watch_history(
 ) -> list[str]:
     """Generate a plausible list of previously watched content IDs."""
     num_items = rng.randint(5, 25)
-    # Watch history is IDs like "content_42". Exact values do not matter for
-    # the simulation since we only use genre distributions.
     return [f"content_{rng.randint(1, 100)}" for _ in range(num_items)]
 
 
 def generate_user(user_id: int, rng: random.Random) -> UserProfile:
-    """Generate a single synthetic user profile."""
+    """Generate a single synthetic user profile with global diversity."""
     age_group = rng.choices(AGE_GROUPS, weights=AGE_GROUP_WEIGHTS, k=1)[0]
     profession = rng.choice(PROFESSIONS)
+    # Teens are overwhelmingly students.
+    if age_group == "13-17":
+        profession = "Student"
     interests = _age_group_to_interests(age_group, rng)
     preferred_watch_time = _preferred_watch_time(age_group, rng)
     ad_tolerance = _age_group_to_ad_tolerance(age_group, rng)
-    # Base fatigue starts low to moderate. Session fatigue is dynamic.
     fatigue_level = max(0.0, min(1.0, rng.gauss(0.25, 0.15)))
-    # Engagement score grounded in MovieLens rating distributions (mean 0.72, std 0.18).
     eng_mean, eng_std = get_grounded_engagement_stats()
     engagement_score = max(0.1, min(0.95, rng.gauss(eng_mean, eng_std)))
     session_count = rng.randint(1, 300)
     binge_tendency = max(0.0, min(1.0, rng.gauss(0.45, 0.20)))
-    # Sample 2-4 genre preferences weighted by MovieLens genre distribution.
     num_prefs = rng.randint(2, 4)
     content_preferences = get_content_preferences_from_movielens(rng, num_prefs)
     watch_history = _generate_watch_history(GENRES, content_preferences, rng)
-    # Generate a plausible name.
-    first_names = [
-        "Alex", "Jordan", "Morgan", "Taylor", "Casey", "Riley", "Avery", "Quinn",
-        "Blake", "Cameron", "Dana", "Devon", "Emery", "Finley", "Gray", "Hayden",
-        "Indigo", "Jesse", "Kendall", "Logan", "Mackenzie", "Noel", "Oakley", "Parker",
-        "Reese", "Sage", "Skyler", "Tatum", "Val", "Winter",
-    ]
-    last_names = [
-        "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-        "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
-        "Thomas", "Taylor", "Moore", "Jackson", "Martin",
-    ]
-    name = f"{rng.choice(first_names)} {rng.choice(last_names)}"
+
+    # Pick a country and generate a culturally appropriate name.
+    country = rng.choices(COUNTRIES, weights=COUNTRY_WEIGHTS, k=1)[0]
+    name_pool = COUNTRY_NAME_POOLS[country]
+    first = rng.choice(name_pool["first"])
+    last = rng.choice(name_pool["last"])
+    name = f"{first} {last} ({country})"
+
     return UserProfile(
         id=user_id,
         name=name,
         age_group=age_group,
+        country=country,
         profession=profession,
         interests=interests,
         preferred_watch_time=preferred_watch_time,
@@ -152,7 +153,7 @@ def generate_user(user_id: int, rng: random.Random) -> UserProfile:
 
 
 def generate_users(
-    count: int = 200, seed: Optional[int] = DEFAULT_SEED
+    count: int = 400, seed: Optional[int] = DEFAULT_SEED
 ) -> list[UserProfile]:
     """
     Generate a pool of synthetic users.
@@ -168,7 +169,7 @@ def generate_users(
 
 def load_or_generate_users(
     cache_path: Optional[str] = None,
-    count: int = 200,
+    count: int = 400,
     seed: Optional[int] = DEFAULT_SEED,
 ) -> list[UserProfile]:
     """
@@ -206,4 +207,4 @@ def load_or_generate_users(
 if __name__ == "__main__":
     users = generate_users(count=10, seed=42)
     for u in users:
-        print(f"  {u.id:3d} | {u.name:<25} | {u.age_group} | {u.interests} | fatigue={u.fatigue_level:.2f}")
+        print(f"  {u.id:3d} | {u.name:<35} | {u.age_group} | {u.country:<12} | {u.interests} | fatigue={u.fatigue_level:.2f}")

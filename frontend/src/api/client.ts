@@ -57,10 +57,10 @@ export interface SimulationResult {
 
 // API helpers
 export const dataApi = {
-  getUsers: (limit = 200) => api.get<{ users: User[]; total: number }>(`/users?limit=${limit}`),
+  getUsers: (limit = 1000) => api.get<{ users: User[]; total: number }>(`/users?limit=${limit}`),
   getUser: (id: number) => api.get<User>(`/users/${id}`),
-  getAds: (limit = 80) => api.get<{ ads: Ad[]; total: number }>(`/ads?limit=${limit}`),
-  getContent: (limit = 100) => api.get<{ content: ContentItem[]; total: number }>(`/content?limit=${limit}`),
+  getAds: (limit = 200) => api.get<{ ads: Ad[]; total: number }>(`/ads?limit=${limit}`),
+  getContent: (limit = 300) => api.get<{ content: ContentItem[]; total: number }>(`/content?limit=${limit}`),
   health: () => api.get('/health'),
 }
 
@@ -90,12 +90,22 @@ export const simulateApi = {
 }
 
 export const abApi = {
+  lookupShow: (title: string) =>
+    api.post<{ genre: string; duration_minutes: number; is_series: boolean; description: string; source: string }>('/ab/lookup-show', { title }),
   start: (params?: { user_id?: number; content_id?: number; seed?: number }) =>
     api.post<{ session_id: string; user_name: string; content_title: string; session_x: unknown[]; session_y: unknown[] }>('/ab/start', params || {}),
+  startCustom: (params: {
+    person_name: string; age_group: string; country: string
+    interests: string[]; ad_tolerance: number
+    show_title: string; show_genre: string; show_duration_minutes: number; is_series: boolean
+    seed?: number
+  }) =>
+    api.post<{ session_id: string; user_name: string; content_title: string; session_x: unknown[]; session_y: unknown[] }>('/ab/custom', params),
   rate: (sessionId: string, params: { session_label: string; annoyance: number; relevance: number; willingness: number; notes?: string }) =>
     api.post(`/ab/${sessionId}/rate`, params),
   results: () => api.get('/ab/results'),
   session: (sessionId: string) => api.get(`/ab/${sessionId}`),
+  history: (limit = 100) => api.get(`/ab/history?limit=${limit}`),
 }
 
 export const experimentApi = {

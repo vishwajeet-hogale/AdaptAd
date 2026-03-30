@@ -1,7 +1,8 @@
 """
 Synthetic content library.
 
-Generates 100 content items with genre, mood, duration, and intensity metadata.
+Generates 150 content items spanning English, Korean, Japanese, Spanish, Hindi,
+Turkish, French, and Portuguese content. Includes series episodes and movies.
 """
 
 import random
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..state import ContentItem, ContentMood
-from .constants import GENRES
+from .constants import GENRES, COUNTRY_LANGUAGE_MAP
 
 DEFAULT_SEED = 42
 
@@ -31,40 +32,203 @@ GENRE_MOODS: dict[str, list[tuple[str, float]]] = {
 MOVIE_DURATION_RANGE = (80, 150)
 EPISODE_DURATION_RANGE = (22, 60)
 
-# Series titles. 10 series x up to 3 episodes each = 30 series content items.
-# The remaining 70 are movies.
-SERIES_TITLES = [
-    "Darkwave Chronicles",
-    "The Signal",
-    "Offworld",
-    "Pulse City",
-    "Ironhaven",
-    "Velvet Underground",
-    "The Reckoning",
-    "Starfall",
-    "Night Protocol",
-    "Hollow Earth",
+# ---- Series titles with language metadata ----
+# (title, language, genre)
+SERIES_CATALOG: list[tuple[str, str, str]] = [
+    # English originals
+    ("Darkwave Chronicles",  "English", "Thriller"),
+    ("The Signal",           "English", "Sci-Fi"),
+    ("Offworld",             "English", "Sci-Fi"),
+    ("Pulse City",           "English", "Drama"),
+    ("Ironhaven",            "English", "Action"),
+    ("Velvet Underground",   "English", "Drama"),
+    ("The Reckoning",        "English", "Thriller"),
+    ("Starfall",             "English", "Fantasy"),
+    ("Night Protocol",       "English", "Thriller"),
+    ("Hollow Earth",         "English", "Sci-Fi"),
+    # Korean (K-drama / Korean thriller)
+    ("Halo of Seoul",        "Korean",  "Drama"),
+    ("Midnight Confession",  "Korean",  "Romance"),
+    ("Kingdom of Shadows",   "Korean",  "Thriller"),
+    # Japanese (anime / live action)
+    ("Midnight Sakura",      "Japanese", "Romance"),
+    ("Steel Horizon",        "Japanese", "Action"),
+    # Spanish / Latin American
+    ("La Frontera",          "Spanish",  "Drama"),
+    ("Casa Infinita",        "Spanish",  "Comedy"),
+    # Hindi / Indian
+    ("Mumbai Monsoon",       "Hindi",    "Drama"),
+    ("Dilli Nights",         "Hindi",    "Thriller"),
+    # Turkish
+    ("Bosphorus Dreams",     "Turkish",  "Romance"),
+    # French
+    ("Le Dernier Signal",    "French",   "Thriller"),
+    # Portuguese / Brazilian
+    ("Além do Rio",          "Portuguese", "Drama"),
 ]
 
-MOVIE_TITLES = [
-    "Edge of Tomorrow", "Lantern Light", "The Forgotten Shore", "Cascade",
-    "Iron Meridian", "The Blue Divide", "Shadow Protocol", "Earthbound",
-    "Lone Circuit", "The Pale Hour", "Fracture Point", "Neon Descent",
-    "The Crossing", "Amber Dawn", "Gravity Wells", "Mirror Stage",
-    "Quantum Breach", "The Long Winter", "Ember Falls", "Hollow Signal",
-    "Deep Fracture", "The Outer Rim", "Shoreline", "Beneath the Static",
-    "Fault Lines", "The Quiet Storm", "Override", "Solar Drift",
-    "Threshold", "The Vanishing Point", "Blind Orbit", "Cold Harbor",
-    "The Final Relay", "Drift Code", "Sunken Archive", "The Last Signal",
-    "Terminal Bloom", "Static Fields", "Warped Horizon", "Night Current",
-    "Parallel Rift", "Void Transit", "The Open Circuit", "Signal Lost",
-    "Crossfire Protocol", "Dead Orbit", "Fractured Light", "Midnight Axis",
-    "Residual Echo", "The Burning Grid", "Shallow Grave", "Ironclad",
-    "Pattern Break", "The End Sequence", "Zero Hour", "Rogue Frequency",
-    "Final Approach", "The Last Descent", "Blackout Protocol", "Static Bloom",
-    "Cold Wire", "The Drift", "Phantom Layer", "Deep Signal",
-    "Breach Point", "Lost Frequency", "The Iron Shore", "Sunfall",
-    "Dark Meridian", "Horizon Shift",
+# ---- Movie titles with language metadata ----
+# (title, language)
+MOVIE_CATALOG: list[tuple[str, str]] = [
+    # English
+    ("Edge of Tomorrow",     "English"),
+    ("Lantern Light",        "English"),
+    ("The Forgotten Shore",  "English"),
+    ("Cascade",              "English"),
+    ("Iron Meridian",        "English"),
+    ("The Blue Divide",      "English"),
+    ("Shadow Protocol",      "English"),
+    ("Earthbound",           "English"),
+    ("Lone Circuit",         "English"),
+    ("The Pale Hour",        "English"),
+    ("Fracture Point",       "English"),
+    ("Neon Descent",         "English"),
+    ("The Crossing",         "English"),
+    ("Amber Dawn",           "English"),
+    ("Gravity Wells",        "English"),
+    ("Mirror Stage",         "English"),
+    ("Quantum Breach",       "English"),
+    ("The Long Winter",      "English"),
+    ("Ember Falls",          "English"),
+    ("Hollow Signal",        "English"),
+    ("Deep Fracture",        "English"),
+    ("The Outer Rim",        "English"),
+    ("Shoreline",            "English"),
+    ("Beneath the Static",   "English"),
+    ("Fault Lines",          "English"),
+    ("The Quiet Storm",      "English"),
+    ("Override",             "English"),
+    ("Solar Drift",          "English"),
+    ("Threshold",            "English"),
+    ("The Vanishing Point",  "English"),
+    ("Blind Orbit",          "English"),
+    ("Cold Harbor",          "English"),
+    ("Drift Code",           "English"),
+    ("Sunken Archive",       "English"),
+    ("Terminal Bloom",       "English"),
+    ("Static Fields",        "English"),
+    ("Warped Horizon",       "English"),
+    ("Night Current",        "English"),
+    ("Parallel Rift",        "English"),
+    ("Void Transit",         "English"),
+    ("Signal Lost",          "English"),
+    ("Crossfire Protocol",   "English"),
+    ("Dead Orbit",           "English"),
+    ("Fractured Light",      "English"),
+    ("Midnight Axis",        "English"),
+    ("Residual Echo",        "English"),
+    ("The Burning Grid",     "English"),
+    ("Ironclad",             "English"),
+    ("Pattern Break",        "English"),
+    ("Zero Hour",            "English"),
+    # Korean films
+    ("Han River Blues",      "Korean"),
+    ("The Last Ferry",       "Korean"),
+    ("Seoul Burning",        "Korean"),
+    ("Under the Cherry Sky", "Korean"),
+    ("Echoes of Incheon",    "Korean"),
+    # Japanese films
+    ("Sakura Protocol",      "Japanese"),
+    ("Tokyo Undertow",       "Japanese"),
+    ("The Kyoto Silence",    "Japanese"),
+    ("Neon Samurai",         "Japanese"),
+    ("Autumn in Osaka",      "Japanese"),
+    # Hindi / Indian films
+    ("Zindagi Ki Daud",      "Hindi"),
+    ("Raat Ka Safar",        "Hindi"),
+    ("Mumbai Express",       "Hindi"),
+    ("Dil Ka Darya",         "Hindi"),
+    ("Ek Pal Ki Zindagi",    "Hindi"),
+    # Spanish / Latin American films
+    ("Tierra de Nadie",      "Spanish"),
+    ("El Ultimo Tren",       "Spanish"),
+    ("Cielo Rojo",           "Spanish"),
+    ("La Sombra del Mar",    "Spanish"),
+    ("Volver al Sur",        "Spanish"),
+    # French films
+    ("La Nuit Blanche",      "French"),
+    ("Le Pont de l'Alma",    "French"),
+    ("Sans Retour",          "French"),
+    ("L'Heure Bleue",        "French"),
+    # German films
+    ("Die Letzte Welle",     "German"),
+    ("Nachtstrom",           "German"),
+    ("Der Unsichtbare",      "German"),
+    # Turkish films
+    ("Istanbul Noir",        "Turkish"),
+    ("Son Gemi",             "Turkish"),
+    ("Gecenin Sonu",         "Turkish"),
+    # Portuguese / Brazilian films
+    ("A Última Margem",      "Portuguese"),
+    ("Rio Silencioso",       "Portuguese"),
+    ("Além da Tempestade",   "Portuguese"),
+    # Mandarin Chinese films
+    ("The Dragon's Breath",  "Mandarin"),
+    ("Midnight in Shanghai", "Mandarin"),
+    ("Silent Pearl",         "Mandarin"),
+    # More English films
+    ("Afterglow",            "English"),
+    ("The Pale Circuit",     "English"),
+    ("Stormwatch",           "English"),
+    ("Redline",              "English"),
+    ("The Broken Meridian",  "English"),
+    ("Dusk Signal",          "English"),
+    ("Cascade Protocol",     "English"),
+    ("Beyond the Grid",      "English"),
+    ("Shadowline",           "English"),
+    ("The Cold Frequency",   "English"),
+    ("Lost Harbor",          "English"),
+    ("Iron Current",         "English"),
+    ("The Open Wire",        "English"),
+    ("Drift Point",          "English"),
+    ("Signal Bloom",         "English"),
+    ("Outer Cascade",        "English"),
+    ("Warpfall",             "English"),
+    ("The Iron Drift",       "English"),
+    ("Pale Horizon",         "English"),
+    ("Night Fracture",       "English"),
+    ("The Blind Signal",     "English"),
+    ("Coldfall",             "English"),
+    ("Static Orbit",         "English"),
+    ("The Last Frequency",   "English"),
+    ("Deep Current",         "English"),
+    ("Void Signal",          "English"),
+    ("The Burning Wire",     "English"),
+    ("Ironfall",             "English"),
+    ("Pattern Signal",       "English"),
+    ("Zero Orbit",           "English"),
+    # More Korean films
+    ("Han River Rain",       "Korean"),
+    ("Seoul Protocol",       "Korean"),
+    ("The Last Han",         "Korean"),
+    ("Cherry Blossom Noir",  "Korean"),
+    # More Japanese films
+    ("Kyoto Rain",           "Japanese"),
+    ("Neon Dusk Tokyo",      "Japanese"),
+    ("The Quiet Mountain",   "Japanese"),
+    # More Hindi / Indian films
+    ("Aasman Ka Raaz",       "Hindi"),
+    ("Lambi Raahein",        "Hindi"),
+    ("Dil Aur Dhadkan",      "Hindi"),
+    # More Spanish / Latin films
+    ("La Ultima Ola",        "Spanish"),
+    ("El Mar Silencioso",    "Spanish"),
+    ("Tierra Oscura",        "Spanish"),
+    # More French films
+    ("Le Silence du Lac",    "French"),
+    ("Nuit Froide",          "French"),
+    # More Turkish films
+    ("Bogazici Gece",        "Turkish"),
+    ("Son Isik",             "Turkish"),
+    # More Portuguese / Brazilian
+    ("Noite do Rio",         "Portuguese"),
+    ("A Maré",               "Portuguese"),
+    # More Mandarin
+    ("The Jade Coast",       "Mandarin"),
+    ("Night over Beijing",   "Mandarin"),
+    # More German
+    ("Der Stille Wald",      "German"),
+    ("Morgendammerung",      "German"),
 ]
 
 
@@ -88,12 +252,9 @@ def _generate_intensity_curve(
     curve = []
     current = baseline
     for minute in range(duration):
-        # Random walk around baseline with momentum.
         delta = rng.gauss(0, 0.08)
         current = max(0.05, min(0.95, current + delta))
-        # Pull toward baseline slowly.
         current = current * 0.85 + baseline * 0.15
-        # Climax tendency: intensity peaks near the last 15% of content.
         if minute > duration * 0.80:
             current = min(0.95, current + 0.04)
         curve.append(round(current, 3))
@@ -106,50 +267,72 @@ def _natural_break_points(
     """
     Place break points at low-intensity minutes, avoiding first/last 5 min.
 
-    Episodes (22-60 min) get 2-4 breaks.
-    Movies (80+ min) get 4-7 breaks.
+    Both the minimum gap between breaks and the target number of breaks scale
+    with the usable content window so short episodes (20 min) and long movies
+    (120 min) each get a realistic spread.
+
+    Usable window  | min_gap | max breaks (series / movie)
+    ≤ 15 min       |  5 min  |  1 / 2
+    ≤ 40 min       |  8 min  |  3 / 4
+    > 40 min       | 12 min  |  3 / 6
     """
     buffer = 5
     start = buffer
     end = duration - buffer
     if end <= start:
         return []
-    eligible = list(range(start, end + 1))
-    if not eligible:
-        return []
-    # Prefer minutes where intensity is low (scene transitions).
-    weighted = [(m, 1.0 / (intensity_curve[m] + 0.1)) for m in eligible]
-    weights = [w for _, w in weighted]
-    minutes = [m for m, _ in weighted]
-    if is_series:
-        num_breaks = rng.randint(2, min(4, len(eligible)))
+
+    available = end - start  # usable minutes
+
+    # Scale min_gap to content length.
+    if available <= 15:
+        min_gap = 5
+    elif available <= 40:
+        min_gap = 8
     else:
-        num_breaks = rng.randint(4, min(7, len(eligible)))
-    num_breaks = min(num_breaks, len(eligible))
-    chosen = rng.choices(minutes, weights=weights, k=num_breaks * 3)
-    # Deduplicate and sort.
-    seen: set[int] = set()
+        min_gap = 12
+
+    # Maximum breaks that can realistically fit with the gap constraint.
+    max_fits = max(1, available // min_gap)
+
+    if is_series:
+        num_breaks = rng.randint(1, min(3, max_fits))
+    else:
+        num_breaks = rng.randint(2, min(6, max_fits))
+
+    # Build a weighted pool biased toward low-intensity moments.
+    eligible = list(range(start, end + 1))
+    weighted = [(m, 1.0 / (intensity_curve[m] + 0.1)) for m in eligible]
+    minutes = [m for m, _ in weighted]
+    weights = [w for _, w in weighted]
+
+    # Sample a large candidate pool then keep points that respect the min gap.
+    candidates = sorted(set(rng.choices(minutes, weights=weights, k=max(num_breaks * 10, 30))))
     result: list[int] = []
-    for m in sorted(chosen):
-        if m not in seen:
-            seen.add(m)
+    for m in candidates:
+        if not result or m - result[-1] >= min_gap:
             result.append(m)
         if len(result) >= num_breaks:
             break
+
+    # Fallback: evenly space using the adaptive gap if sampling didn't fill quota.
+    if len(result) < num_breaks:
+        step = max(min_gap, available // (num_breaks + 1))
+        result = [start + step * i for i in range(1, num_breaks + 1) if start + step * i <= end]
+
     return sorted(result)
 
 
 def generate_content_library(
-    count: int = 100, seed: Optional[int] = DEFAULT_SEED
+    count: int = 300, seed: Optional[int] = DEFAULT_SEED
 ) -> list[ContentItem]:
     rng = random.Random(seed)
     items: list[ContentItem] = []
-
-    # First 30 items are series episodes (10 series, 3 episodes each).
     item_id = 1
-    for series_idx, series_title in enumerate(SERIES_TITLES):
-        genre = rng.choice(list(GENRE_MOODS.keys()))
-        mood_choices = GENRE_MOODS[genre]
+
+    # Series episodes: 3 episodes per series entry in SERIES_CATALOG.
+    for series_title, language, series_genre in SERIES_CATALOG:
+        mood_choices = GENRE_MOODS.get(series_genre, GENRE_MOODS["Drama"])
         moods, mood_weights = zip(*mood_choices)
         series_season = 1
         for ep_num in range(1, 4):
@@ -161,7 +344,8 @@ def generate_content_library(
                 ContentItem(
                     id=item_id,
                     title=f"{series_title} S{series_season}E{ep_num}",
-                    genre=genre,
+                    genre=series_genre,
+                    language=language,
                     duration_minutes=duration,
                     mood=mood,
                     episode_number=ep_num,
@@ -173,13 +357,14 @@ def generate_content_library(
             )
             item_id += 1
 
-    # Remaining items are movies.
-    movie_titles_shuffled = MOVIE_TITLES[:]
-    rng.shuffle(movie_titles_shuffled)
-    for i in range(count - 30):
-        title = movie_titles_shuffled[i % len(movie_titles_shuffled)]
-        if i >= len(movie_titles_shuffled):
-            title = f"{title} ({i // len(movie_titles_shuffled) + 1})"
+    # Movies: fill remaining slots from MOVIE_CATALOG.
+    remaining = count - len(items)
+    movie_list = MOVIE_CATALOG[:]
+    rng.shuffle(movie_list)
+    for i in range(remaining):
+        title, language = movie_list[i % len(movie_list)]
+        if i >= len(movie_list):
+            title = f"{title} II"
         genre = rng.choice(list(GENRE_MOODS.keys()))
         mood_choices = GENRE_MOODS[genre]
         moods, mood_weights = zip(*mood_choices)
@@ -192,6 +377,7 @@ def generate_content_library(
                 id=item_id,
                 title=title,
                 genre=genre,
+                language=language,
                 duration_minutes=duration,
                 mood=mood,
                 episode_number=None,
@@ -206,9 +392,31 @@ def generate_content_library(
     return items[:count]
 
 
+def pick_content_for_user(
+    user, content_items: list, rng: random.Random, native_boost: float = 3.0
+) -> "ContentItem":
+    """
+    Choose a content item biased toward the user's native language(s).
+
+    Items in the user's native language (non-English) are weighted native_boost× higher.
+    English content stays at 1.0. Foreign content the user is unlikely to prefer: 0.3×.
+    """
+    country = getattr(user, "country", "")
+    native_langs = COUNTRY_LANGUAGE_MAP.get(country, ["English"])
+    weights = []
+    for item in content_items:
+        if item.language in native_langs and item.language != "English":
+            weights.append(native_boost)
+        elif item.language == "English":
+            weights.append(1.0)
+        else:
+            weights.append(0.3)
+    return rng.choices(content_items, weights=weights, k=1)[0]
+
+
 def load_or_generate_content(
     cache_path: Optional[str] = None,
-    count: int = 100,
+    count: int = 300,
     seed: Optional[int] = DEFAULT_SEED,
 ) -> list[ContentItem]:
     import json
@@ -239,7 +447,7 @@ if __name__ == "__main__":
     library = generate_content_library(count=10, seed=42)
     for item in library:
         print(
-            f"  {item.id:3d} | {item.title:<40} | {item.genre:<12} | "
+            f"  {item.id:3d} | {item.title:<45} | {item.language:<12} | {item.genre:<12} | "
             f"{item.mood.value:<10} | {item.duration_minutes}min | "
             f"breaks={item.natural_break_points}"
         )

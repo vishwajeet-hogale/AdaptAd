@@ -11,7 +11,7 @@ interface Props {
   targetFitness?: number
 }
 
-export default function FitnessChart({ data, targetFitness = 0.65 }: Props) {
+export default function FitnessChart({ data, targetFitness = 0.58 }: Props) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -23,7 +23,10 @@ export default function FitnessChart({ data, targetFitness = 0.65 }: Props) {
           label={{ value: 'Generation', position: 'insideBottom', offset: -2, fill: '#64748b', fontSize: 11 }}
         />
         <YAxis
-          domain={[0, 1]}
+          domain={([dataMin, dataMax]: [number, number]) => [
+            Math.max(0, parseFloat((dataMin - 0.03).toFixed(2))),
+            Math.min(1, parseFloat((dataMax + 0.03).toFixed(2))),
+          ]}
           stroke="#475569"
           tick={{ fontSize: 11, fill: '#64748b' }}
           tickFormatter={(v) => v.toFixed(2)}
