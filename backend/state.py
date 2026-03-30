@@ -57,6 +57,7 @@ class UserProfile(BaseModel):
     id: int
     name: str
     age_group: str
+    country: str = ""
     profession: str
     interests: list[str]
     preferred_watch_time: TimeOfDay
@@ -71,7 +72,7 @@ class UserProfile(BaseModel):
     @field_validator("age_group")
     @classmethod
     def validate_age_group(cls, v: str) -> str:
-        valid = {"18-24", "25-34", "35-44", "45-54", "55-64", "65+"}
+        valid = {"13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"}
         if v not in valid:
             raise ValueError(f"age_group must be one of {valid}, got '{v}'")
         return v
@@ -135,6 +136,7 @@ class ContentItem(BaseModel):
     id: int
     title: str
     genre: str
+    language: str = "English"
     duration_minutes: int
     mood: ContentMood
     episode_number: Optional[int] = None

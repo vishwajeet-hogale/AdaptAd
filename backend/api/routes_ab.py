@@ -20,7 +20,8 @@ from ..agents.advertiser_advocate import score_advertiser_advocate
 from ..agents.negotiator import negotiate
 from ..simulation.session import simulate_session, apply_decision
 from ..simulation.fatigue import should_force_suppress
-from ..state import AdDecision, Chromosome, Season, TimeOfDay
+from ..state import AdDecision, Chromosome, ContentMood, ContentItem, Season, TimeOfDay, UserProfile
+from ..data.content_library import GENRE_MOODS, _generate_intensity_curve, _natural_break_points
 from .routes_data import get_users, get_ads, get_content
 from .routes_decide import get_chromosome
 
@@ -35,6 +36,38 @@ class ABStartRequest(BaseModel):
     user_id: Optional[int] = None       # If None, pick random user.
     content_id: Optional[int] = None    # If None, pick random content.
     seed: Optional[int] = None
+
+
+class CustomABRequest(BaseModel):
+    """Run an A/B test using a real person's profile and a real show they're watching."""
+    person_name: str = "Anonymous"
+    age_group: str = "25-34"
+    country: str = ""
+    interests: list[str] = ["tech", "travel"]
+    ad_tolerance: float = 0.5
+    show_title: str = "My Show"
+    show_genre: str = "Drama"
+    show_duration_minutes: int = 45
+    is_series: bool = False
+    seed: Optional[int] = None
+
+    @field_validator("age_group")
+    @classmethod
+    def validate_age_group(cls, v: str) -> str:
+        valid = {"13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"}
+        if v not in valid:
+            raise ValueError(f"age_group must be one of {valid}")
+        return v
+
+    @field_validator("ad_tolerance")
+    @classmethod
+    def clamp_tolerance(cls, v: float) -> float:
+        return max(0.0, min(1.0, v))
+
+    @field_validator("show_duration_minutes")
+    @classmethod
+    def validate_duration(cls, v: int) -> int:
+        return max(10, min(240, v))
 
 
 class ABRatingRequest(BaseModel):
@@ -267,3 +300,108 @@ def get_ab_session(session_id: str):
     if session_id not in _ab_sessions:
         raise HTTPException(status_code=404, detail=f"AB session {session_id} not found.")
     return _ab_sessions[session_id]
+
+
+@router.post("/custom")
+def start_custom_ab_session(req: CustomABRequest):
+    """
+    Run an A/B test using a real person's self-reported profile and a show they are watching.
+    Creates a synthetic UserProfile and ContentItem from the supplied details, then runs
+    the same AdaptAd vs random-baseline comparison as the standard endpoint.
+    """
+    from ..data.constants import AD_CATEGORIES
+
+    rng = random.Random(req.seed or random.randint(0, 2**31))
+
+    # Validate interests against known categories.
+    valid_cats = set(AD_CATEGORIES)
+    interests = [i for i in req.interests if i in valid_cats]
+    if not interests:
+        interests = ["tech", "travel"]
+
+    user = UserProfile(
+        id=99999,
+        name=req.person_name if req.person_name.strip() else "You",
+        age_group=req.age_group,
+        country=req.country,
+        profession="Custom",
+        interests=interests,
+        preferred_watch_time=TimeOfDay.evening,
+        ad_tolerance=req.ad_tolerance,
+        fatigue_level=0.2,
+        engagement_score=0.7,
+        session_count=10,
+        watch_history=[],
+        binge_tendency=0.4,
+        content_preferences=interests[:2],
+    )
+
+    # Build a realistic ContentItem from the supplied show details.
+    genre = req.show_genre if req.show_genre in GENRE_MOODS else "Drama"
+    mood_choices = GENRE_MOODS[genre]
+    moods, mood_weights = zip(*mood_choices)
+    mood = ContentMood(rng.choices(moods, weights=list(mood_weights), k=1)[0])
+    duration = req.show_duration_minutes
+    intensity = _generate_intensity_curve(duration, mood, rng)
+    breaks = _natural_break_points(duration, req.is_series, intensity, rng)
+
+    content = ContentItem(
+        id=99999,
+        title=req.show_title if req.show_title.strip() else "Custom Show",
+        genre=genre,
+        language="Custom",
+        duration_minutes=duration,
+        mood=mood,
+        is_series=req.is_series,
+        natural_break_points=breaks,
+        intensity_curve=intensity,
+    )
+
+    ads = get_ads()
+    chromosome = get_chromosome()
+    seed = req.seed or rng.randint(0, 2**31)
+
+    adaptad_records = _run_adaptad_session(user, content, ads, chromosome, seed)
+    random_records = _run_random_session(user, content, ads, seed + 1)
+
+    attempts = 0
+    while (
+        [r["decision"] for r in adaptad_records] == [r["decision"] for r in random_records]
+        and attempts < 5
+    ):
+        random_records = _run_random_session(user, content, ads, seed + attempts + 10)
+        attempts += 1
+
+    if rng.random() < 0.5:
+        session_x_records = adaptad_records
+        session_y_records = random_records
+        x_is_adaptad = True
+    else:
+        session_x_records = random_records
+        session_y_records = adaptad_records
+        x_is_adaptad = False
+
+    session_id = str(uuid.uuid4())
+    _ab_sessions[session_id] = {
+        "session_id": session_id,
+        "user_id": user.id,
+        "user_name": user.name,
+        "content_id": content.id,
+        "content_title": content.title,
+        "session_x": session_x_records,
+        "session_y": session_y_records,
+        "x_is_adaptad": x_is_adaptad,
+        "ratings": {},
+        "created_at": datetime.utcnow().isoformat(),
+        "completed": False,
+        "is_custom": True,
+    }
+
+    return {
+        "session_id": session_id,
+        "user_name": user.name,
+        "content_title": content.title,
+        "session_x": session_x_records,
+        "session_y": session_y_records,
+        "instructions": "Rate each session on annoyance, relevance, and willingness to continue (1-5).",
+    }

@@ -103,8 +103,8 @@ class LLMConfig:
 class SimulationConfig:
     """Session simulation parameters."""
 
-    num_users: int = 200
-    num_content_items: int = 100
+    num_users: int = 400
+    num_content_items: int = 150
     num_ads: int = 80
     # Never place an ad in the first or last 5 minutes of content.
     break_point_buffer_minutes: int = 5

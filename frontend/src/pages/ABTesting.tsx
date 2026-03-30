@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { abApi } from '../api/client'
 import DecisionBadge from '../components/DecisionBadge'
 
+const AD_CATEGORIES = ['tech', 'food', 'auto', 'fashion', 'finance', 'travel', 'health', 'gaming']
+const AGE_GROUPS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']
+const GENRES = ['Action', 'Comedy', 'Drama', 'Sci-Fi', 'Horror', 'Documentary', 'Romance', 'Thriller', 'Animation', 'Fantasy']
+
 interface Break { break_minute: number; ad_category: string; decision: string }
 interface Session { session_id: string; user_name: string; content_title: string; session_x: Break[]; session_y: Break[] }
 interface Rating { annoyance: number; relevance: number; willingness: number }
@@ -50,6 +54,18 @@ function SessionView({ label, breaks, rating, onRate }: { label: string; breaks:
   )
 }
 
+const DEFAULT_CUSTOM = {
+  person_name: '',
+  age_group: '25-34',
+  country: '',
+  interests: [] as string[],
+  ad_tolerance: 0.5,
+  show_title: '',
+  show_genre: 'Drama',
+  show_duration_minutes: 45,
+  is_series: false,
+}
+
 export default function ABTesting() {
   const [session, setSession] = useState<Session | null>(null)
   const [xRating, setXRating] = useState<Rating>({ annoyance: 0, relevance: 0, willingness: 0 })
@@ -58,20 +74,38 @@ export default function ABTesting() {
   const [results, setResults] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCustomForm, setShowCustomForm] = useState(false)
+  const [custom, setCustom] = useState(DEFAULT_CUSTOM)
 
   function updateRating(which: 'X' | 'Y', field: keyof Rating, v: number) {
     if (which === 'X') setXRating((r) => ({ ...r, [field]: v }))
     else setYRating((r) => ({ ...r, [field]: v }))
   }
 
-  async function startSession() {
-    setLoading(true); setError(null); setSubmitted(false)
+  function resetSession() {
+    setSession(null); setSubmitted(false); setResults(null); setError(null)
     setXRating({ annoyance: 0, relevance: 0, willingness: 0 })
     setYRating({ annoyance: 0, relevance: 0, willingness: 0 })
+  }
+
+  async function startSession() {
+    resetSession(); setLoading(true)
     try {
       const r = await abApi.start()
       setSession(r.data as Session)
     } catch { setError('Failed to start A/B session.') }
+    finally { setLoading(false) }
+  }
+
+  async function startCustomSession() {
+    if (custom.interests.length === 0) { setError('Please select at least one interest.'); return }
+    if (!custom.show_title.trim()) { setError('Please enter a show or movie title.'); return }
+    resetSession(); setLoading(true)
+    try {
+      const r = await abApi.startCustom(custom)
+      setSession(r.data as Session)
+      setShowCustomForm(false)
+    } catch { setError('Failed to start custom A/B session.') }
     finally { setLoading(false) }
   }
 
@@ -91,6 +125,15 @@ export default function ABTesting() {
     finally { setLoading(false) }
   }
 
+  function toggleInterest(cat: string) {
+    setCustom((c) => ({
+      ...c,
+      interests: c.interests.includes(cat)
+        ? c.interests.filter((i) => i !== cat)
+        : [...c.interests, cat],
+    }))
+  }
+
   const aggregate = (results as Record<string, unknown> | null)?.aggregate as Record<string, unknown> | undefined
 
   return (
@@ -100,10 +143,131 @@ export default function ABTesting() {
           <h1 className="page-title">A/B Testing</h1>
           <p className="page-sub">Compare AdaptAd against random placement. Labels are randomized to prevent bias.</p>
         </div>
-        <button className="btn-primary shrink-0" onClick={startSession} disabled={loading}>
-          {loading ? 'Loading…' : 'New Session'}
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button className="btn-secondary" onClick={() => { resetSession(); setShowCustomForm((v) => !v) }} disabled={loading}>
+            {showCustomForm ? 'Cancel' : 'Use My Profile'}
+          </button>
+          <button className="btn-primary" onClick={startSession} disabled={loading}>
+            {loading ? 'Loading…' : 'New Session'}
+          </button>
+        </div>
       </div>
+
+      {/* Custom person & show form */}
+      {showCustomForm && (
+        <div className="card border-sky-700/30 space-y-5">
+          <div>
+            <h2 className="section-title mb-1">Real Person & Show</h2>
+            <p className="text-xs text-slate-500">Enter your own profile and a show you're watching. AdaptAd will run a personalised A/B test.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="label">Your name</label>
+              <input
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                placeholder="e.g. Priya Sharma"
+                value={custom.person_name}
+                onChange={(e) => setCustom((c) => ({ ...c, person_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="label">Country</label>
+              <input
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                placeholder="e.g. India"
+                value={custom.country}
+                onChange={(e) => setCustom((c) => ({ ...c, country: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="label">Age group</label>
+              <select
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                value={custom.age_group}
+                onChange={(e) => setCustom((c) => ({ ...c, age_group: e.target.value }))}
+              >
+                {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="label">Ad tolerance <span className="text-sky-500 font-mono">{custom.ad_tolerance.toFixed(2)}</span></label>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                className="w-full accent-sky-500"
+                value={custom.ad_tolerance}
+                onChange={(e) => setCustom((c) => ({ ...c, ad_tolerance: parseFloat(e.target.value) }))}
+              />
+              <div className="flex justify-between text-xs text-slate-600">
+                <span>Low (dislike ads)</span><span>High (don't mind)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="label">Your interests <span className="text-slate-600 font-normal">(select all that apply)</span></label>
+            <div className="flex flex-wrap gap-2">
+              {AD_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => toggleInterest(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    custom.interests.includes(cat)
+                      ? 'bg-sky-600/20 border-sky-500/50 text-sky-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-700/50 pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1 sm:col-span-1">
+              <label className="label">Show / movie title</label>
+              <input
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                placeholder="e.g. Stranger Things"
+                value={custom.show_title}
+                onChange={(e) => setCustom((c) => ({ ...c, show_title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="label">Genre</label>
+              <select
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                value={custom.show_genre}
+                onChange={(e) => setCustom((c) => ({ ...c, show_genre: e.target.value }))}
+              >
+                {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="label">Duration (minutes)</label>
+              <input
+                type="number" min="10" max="240"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                value={custom.show_duration_minutes}
+                onChange={(e) => setCustom((c) => ({ ...c, show_duration_minutes: parseInt(e.target.value) || 45 }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox" id="is-series" className="accent-sky-500"
+              checked={custom.is_series}
+              onChange={(e) => setCustom((c) => ({ ...c, is_series: e.target.checked }))}
+            />
+            <label htmlFor="is-series" className="text-sm text-slate-400">This is a series episode (fewer ad breaks)</label>
+          </div>
+
+          <button className="btn-primary" onClick={startCustomSession} disabled={loading}>
+            {loading ? 'Loading…' : 'Start with My Profile'}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="card border-red-700/40 bg-red-950/20 text-red-400 text-sm">{error}</div>
@@ -148,9 +312,9 @@ export default function ABTesting() {
         </div>
       )}
 
-      {!session && !loading && (
+      {!session && !loading && !showCustomForm && (
         <div className="card h-48 flex items-center justify-center text-zinc-600 text-sm">
-          Click "New Session" to start an A/B test
+          Click "New Session" for a random test, or "Use My Profile" to test with your own details
         </div>
       )}
     </div>
