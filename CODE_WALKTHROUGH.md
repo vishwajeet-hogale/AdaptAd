@@ -370,15 +370,17 @@ This encoding captures the intuition that showing an ad during a calm, uplifting
 Given a combined score `c` and the `frequency_threshold` gene `g`:
 
 ```
-show_thresh   = 0.45 + g × 0.35      # range: [0.45, 0.80]
-soften_thresh = show_thresh - 0.15   # range: [0.30, 0.65]
-delay_thresh  = soften_thresh - 0.15 # range: [0.15, 0.50]
+show_thresh   = 0.35 + frequency_threshold × 0.30    # range: [0.35, 0.65]
+soften_thresh = show_thresh - 0.06 - soften_threshold × 0.14   # variable offset
+delay_thresh  = soften_thresh - 0.04 - delay_probability × 0.10 # variable offset
 
 if   c >= show_thresh:   decision = SHOW
 elif c >= soften_thresh: decision = SOFTEN
 elif c >= delay_thresh:  decision = DELAY
 else:                    decision = SUPPRESS
 ```
+
+All three genes (`frequency_threshold`, `soften_threshold`, `delay_probability`) independently control their respective zone boundaries. Previously `soften_threshold` and `delay_probability` were in the chromosome but the offsets were hardcoded constants — those genes now have real signal for the GA to tune.
 
 This means the `frequency_threshold` gene can slide the entire threshold band. When `frequency_threshold=0.0`, the show threshold is 0.45 — the system shows ads unless conditions are poor. When `frequency_threshold=1.0`, the show threshold is 0.80 — only excellent conditions justify showing an ad.
 
@@ -576,9 +578,9 @@ The 55/45 split gives the User Advocate a slight edge. This mirrors the fitness 
 The combined score is mapped to a decision using the threshold formula driven by the `frequency_threshold` gene:
 
 ```python
-show_thresh   = 0.45 + chromosome.frequency_threshold × 0.35
-soften_thresh = show_thresh - 0.15
-delay_thresh  = soften_thresh - 0.15
+show_thresh   = 0.35 + chromosome.frequency_threshold * 0.30
+soften_thresh = show_thresh   - 0.06 - chromosome.soften_threshold  * 0.14
+delay_thresh  = soften_thresh - 0.04 - chromosome.delay_probability * 0.10
 
 if   combined >= show_thresh:   decision = AdDecision.SHOW
 elif combined >= soften_thresh: decision = AdDecision.SOFTEN
