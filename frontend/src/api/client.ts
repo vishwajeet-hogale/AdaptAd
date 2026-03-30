@@ -90,6 +90,8 @@ export const simulateApi = {
 }
 
 export const abApi = {
+  lookupShow: (title: string) =>
+    api.post<{ genre: string; duration_minutes: number; is_series: boolean; description: string; source: string }>('/ab/lookup-show', { title }),
   start: (params?: { user_id?: number; content_id?: number; seed?: number }) =>
     api.post<{ session_id: string; user_name: string; content_title: string; session_x: unknown[]; session_y: unknown[] }>('/ab/start', params || {}),
   startCustom: (params: {

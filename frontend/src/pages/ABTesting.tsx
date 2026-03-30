@@ -141,6 +141,8 @@ export default function ABTesting() {
   const [historyAggregate, setHistoryAggregate] = useState<Record<string, unknown> | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [durationStr, setDurationStr] = useState(DEFAULT_DURATION_STR)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [showDescription, setShowDescription] = useState('')
 
   useEffect(() => {
     abApi.history().then((r) => {
@@ -160,6 +162,28 @@ export default function ABTesting() {
     setXRating({ annoyance: 0, relevance: 0, willingness: 0 })
     setYRating({ annoyance: 0, relevance: 0, willingness: 0 })
     setCustom(DEFAULT_CUSTOM); setDurationStr(DEFAULT_DURATION_STR)
+    setShowDescription('')
+  }
+
+  async function lookupShow() {
+    if (!custom.show_title.trim()) { setError('Enter a show or movie title first.'); return }
+    setLookupLoading(true); setError(null)
+    try {
+      const r = await abApi.lookupShow(custom.show_title)
+      const d = r.data
+      setCustom((c) => ({
+        ...c,
+        show_genre: d.genre,
+        show_duration_minutes: d.duration_minutes,
+        is_series: d.is_series,
+      }))
+      setDurationStr(String(d.duration_minutes))
+      setShowDescription(d.description || '')
+    } catch {
+      setError('Could not look up show — fill in the details manually.')
+    } finally {
+      setLookupLoading(false)
+    }
   }
 
   async function startSession() {
@@ -174,7 +198,10 @@ export default function ABTesting() {
   async function startCustomSession() {
     if (custom.interests.length === 0) { setError('Please select at least one interest.'); return }
     if (!custom.show_title.trim()) { setError('Please enter a show or movie title.'); return }
-    resetSession(); setLoading(true)
+    setSession(null); setSessionDetail(null); setSubmitted(false); setResults(null); setError(null)
+    setXRating({ annoyance: 0, relevance: 0, willingness: 0 })
+    setYRating({ annoyance: 0, relevance: 0, willingness: 0 })
+    setLoading(true)
     try {
       const r = await abApi.startCustom(custom)
       setSession(r.data as Session)
@@ -293,9 +320,21 @@ export default function ABTesting() {
           <div className="border-t border-slate-700/50 pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1 sm:col-span-1">
               <label className="label">Show / movie title</label>
-              <input className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
-                placeholder="e.g. Stranger Things" value={custom.show_title}
-                onChange={(e) => setCustom((c) => ({ ...c, show_title: e.target.value }))} />
+              <div className="flex gap-2">
+                <input className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+                  placeholder="e.g. Stranger Things" value={custom.show_title}
+                  onChange={(e) => { setCustom((c) => ({ ...c, show_title: e.target.value })); setShowDescription('') }} />
+                <button
+                  onClick={lookupShow}
+                  disabled={lookupLoading || !custom.show_title.trim()}
+                  className="shrink-0 px-3 py-2 bg-sky-700/30 hover:bg-sky-600/40 border border-sky-600/40 text-sky-300 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {lookupLoading ? '…' : 'Look Up'}
+                </button>
+              </div>
+              {showDescription && (
+                <p className="text-xs text-slate-500 italic mt-1">{showDescription}</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="label">Genre</label>

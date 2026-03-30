@@ -2,6 +2,7 @@
 A/B testing routes.
 
 POST /api/ab/start              Create a new A/B test session.
+POST /api/ab/lookup-show        Look up show metadata via LLM.
 POST /api/ab/{session_id}/rate  Submit ratings for one session label.
 GET  /api/ab/results            All A/B test results with aggregate stats.
 GET  /api/ab/{session_id}       Details for one A/B session.
@@ -18,6 +19,7 @@ from pydantic import BaseModel, field_validator
 from ..agents.user_advocate import score_user_advocate
 from ..agents.advertiser_advocate import score_advertiser_advocate
 from ..agents.negotiator import negotiate
+from ..agents.llm_reasoning import lookup_show_metadata
 from ..simulation.session import simulate_session, apply_decision
 from ..simulation.fatigue import should_force_suppress
 from ..state import AdDecision, Chromosome, ContentMood, ContentItem, Season, TimeOfDay, UserProfile
@@ -133,6 +135,19 @@ def _run_random_session(user, content, ads, seed) -> list[dict]:
             "decision": decision.value,
         })
     return records
+
+
+class ShowLookupRequest(BaseModel):
+    title: str
+
+
+@router.post("/lookup-show")
+def lookup_show(req: ShowLookupRequest):
+    """
+    Use the LLM to infer genre, duration, and series/movie status from a show title.
+    Falls back to safe defaults if LLM is unavailable or fails.
+    """
+    return lookup_show_metadata(req.title.strip())
 
 
 @router.post("/start")
