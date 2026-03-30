@@ -118,12 +118,15 @@ def _build_user_profile(user)-> dict:
     }
 
 def _build_content_profile(content)->dict:
+    mood = getattr(content, "mood", None)
     return {
-        "id":content.id,
+        "id": content.id,
         "title": content.title,
         "genre": getattr(content, "genre", None),
-        "duration": getattr(content, "duration", None),
-        "mood": getattr(content, "mood", None),
+        "duration_minutes": getattr(content, "duration_minutes", None),
+        "mood": mood.value if hasattr(mood, "value") else mood,
+        "language": getattr(content, "language", "English"),
+        "is_series": getattr(content, "is_series", False),
     }
 
 def _build_session_context(user, content, records)-> dict:
@@ -135,7 +138,7 @@ def _build_session_context(user, content, records)-> dict:
         "total_breaks": total_breaks,
         "fatigue": round(float(user.fatigue_level),2),
         "session_depth": records[-1]["break_minute"] if records else 0,
-        "content_duration": getattr(content, "duration", None),
+        "content_duration": getattr(content, "duration_minutes", None),
         "binge": bool(getattr(user, "binge_tendency", 0.0) > 0.5),
     }
 

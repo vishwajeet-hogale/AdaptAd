@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { abApi } from '../api/client'
 import DecisionBadge from '../components/DecisionBadge'
 
@@ -6,77 +6,71 @@ const AD_CATEGORIES = ['tech', 'food', 'auto', 'fashion', 'finance', 'travel', '
 const AGE_GROUPS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']
 const GENRES = ['Action', 'Comedy', 'Drama', 'Sci-Fi', 'Horror', 'Documentary', 'Romance', 'Thriller', 'Animation', 'Fantasy']
 
-interface SessionDetail extends Session {
-  x_is_adaptad: boolean
-}
-
 interface Break { break_minute: number; ad_category: string; decision: string }
 interface UserProfile {
-  id: number
-  name: string
-  age_group: string
-  profession: string
-  interests: string[]
-  content_preferences: string[]
-  binge_tendency: number
-  fatigue_level: number
-  engagement_score: number
-  ad_tolerance: number
-  preferred_watch_time: string
-  session_count: number
+  name: string; age_group: string; profession: string
+  interests: string[]; content_preferences: string[]
+  binge_tendency: number; fatigue_level: number
+  ad_tolerance: number; preferred_watch_time: string
 }
-
 interface ContentProfile {
-  id: number
-  title: string
-  genre?: string | null
-  duration?: number | null
-  mood?: string | null
+  title: string; genre: string; duration_minutes: number | null
+  mood: string | null; language: string; is_series: boolean
 }
-
 interface SessionContext {
-  ads_shown: number
-  total_breaks: number
-  fatigue: number
-  session_depth: number
-  content_duration?: number | null
-  binge: boolean
+  ads_shown: number; total_breaks: number; fatigue: number
+  session_depth: number; content_duration: number | null; binge: boolean
 }
-
 interface Session {
-  session_id: string
-  user_name: string
-  content_title: string
-  user_profile: UserProfile
-  content_profile: ContentProfile
-  session_context: SessionContext
-  session_x: Break[]
-  session_y: Break[]
+  session_id: string; user_name: string; content_title: string
+  session_x: Break[]; session_y: Break[]
+  user_profile?: UserProfile
+  content_profile?: ContentProfile
+  session_context?: SessionContext
 }
+interface Rating { annoyance: number; relevance: number; willingness: number }
 
-interface Rating {
-  annoyance: number
-  relevance: number
-  willingness: number
+const DEFAULT_CUSTOM = {
+  person_name: '', age_group: '25-34', country: '',
+  interests: [] as string[], ad_tolerance: 0.5,
+  show_title: '', show_genre: 'Drama', show_duration_minutes: 45, is_series: false,
 }
+const DEFAULT_DURATION_STR = '45'
 
-function formatWatchTime(value: string) {
-  return value.replace('TimeOfDay.', '')
-}
+// ── small helpers ────────────────────────────────────────────────────────────
 
-function ScaleRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-1 flex-wrap">
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+    <div className="flex justify-between items-start gap-2 py-1.5 border-b border-slate-800/40 dark:border-slate-800/40 last:border-0">
+      <span className="text-xs text-slate-500 shrink-0">{label}</span>
+      <span className="text-xs text-slate-200 dark:text-slate-200 text-right">{value}</span>
+    </div>
+  )
+}
+
+function Tag({ label }: { label: string }) {
+  return (
+    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-700/60 text-slate-300 border border-slate-600/40">
+      {label}
+    </span>
+  )
+}
+
+function ScaleRating({ value, onChange, readonly }: {
+  value: number; onChange?: (v: number) => void; readonly?: boolean
+}) {
+  return (
+    <div className="flex gap-1">
+      {[1,2,3,4,5,6,7,8,9,10].map((n) => (
         <button
           key={n}
           onClick={() => !readonly && onChange?.(n)}
-          className={`w-7 h-7 rounded-md text-xs font-semibold transition-colors border ${
+          className={`w-6 h-6 rounded text-[10px] font-semibold transition-colors border ${
             n === value
               ? 'bg-sky-600 border-sky-500 text-white'
               : readonly
-              ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-default'
-              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-sky-500 hover:text-sky-300 cursor-pointer'
+              ? 'bg-slate-800 border-slate-700 text-slate-600 cursor-default'
+              : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-sky-500 hover:text-sky-300 cursor-pointer'
           }`}
         >{n}</button>
       ))}
@@ -84,119 +78,108 @@ function ScaleRating({ value, onChange, readonly }: { value: number; onChange?: 
   )
 }
 
-function ContextCard({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="card">
-      <h3 className="section-title mb-3">{title}</h3>
-      <div className="space-y-2 text-sm text-zinc-300">{children}</div>
-    </div>
-  )
-}
+// ── info panels ──────────────────────────────────────────────────────────────
 
-function SessionView({ label, breaks, rating, onRate }: { label: string; breaks: Break[]; rating: Rating; onRate: (field: keyof Rating, v: number) => void }) {
+function UserCard({ p, name }: { p: UserProfile | undefined; name: string }) {
+  const watchTime = p?.preferred_watch_time?.replace('TimeOfDay.', '') ?? '—'
   return (
     <div className="card flex-1 min-w-0">
-      <h3 className="section-title mb-3">Session {label}</h3>
-      <div className="space-y-1 mb-4 max-h-48 overflow-y-auto">
-        {breaks.length === 0
-          ? <p className="text-zinc-600 text-sm">No ad breaks</p>
-          : breaks.map((b, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-zinc-600 w-10 font-mono text-xs">{b.break_minute}m</span>
-                <DecisionBadge decision={b.decision} size="sm" />
-                <span className="text-zinc-500 text-xs">{b.ad_category}</span>
-              </div>
-            ))
-        }
+      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">User</p>
+      <InfoRow label="Name" value={<span className="font-semibold">{p?.name ?? name}</span>} />
+      <InfoRow label="Age Group" value={p?.age_group ?? '—'} />
+      <InfoRow label="Profession" value={p?.profession ?? '—'} />
+      <div className="py-1.5 border-b border-slate-800/40">
+        <p className="text-xs text-slate-500 mb-1">Ad Interests</p>
+        <p className="text-xs text-slate-200">{p?.interests?.join(', ') || '—'}</p>
       </div>
-      <div className="border-t border-violet-900/30 pt-3 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="label">Annoyance</span>
-          <ScaleRating value={rating.annoyance} onChange={(v) => onRate('annoyance', v)} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="label">Relevance</span>
-          <ScaleRating value={rating.relevance} onChange={(v) => onRate('relevance', v)} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="label">Would continue?</span>
-          <ScaleRating value={rating.willingness} onChange={(v) => onRate('willingness', v)} />
-        </div>
+      <div className="py-1.5 border-b border-slate-800/40">
+        <p className="text-xs text-slate-500 mb-1">Preferred Genres</p>
+        <p className="text-xs text-slate-200">{p?.content_preferences?.join(', ') || '—'}</p>
       </div>
+      <InfoRow label="Ad Tolerance" value={p ? p.ad_tolerance.toFixed(2) : '—'} />
+      <InfoRow label="Binge Tendency" value={p ? p.binge_tendency.toFixed(2) : '—'} />
+      <InfoRow label="Preferred Watch Time" value={watchTime} />
     </div>
   )
 }
 
-function RevealCard({
-  label, isAdaptAd, breaks, rating
-}: { label: string; isAdaptAd: boolean; breaks: Break[]; rating: Rating }) {
-  const score = rating.willingness + rating.relevance - rating.annoyance
+function ContentCard({ p, title }: { p: ContentProfile | undefined; title: string }) {
   return (
-    <div className={`card flex-1 min-w-0 ${isAdaptAd ? 'border-sky-600/40' : 'border-slate-600/40'}`}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="section-title">Session {label}</h3>
-        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isAdaptAd ? 'bg-sky-600/20 text-sky-300' : 'bg-slate-700 text-slate-400'}`}>
-          {isAdaptAd ? 'AdaptAd' : 'Random Baseline'}
-        </span>
-      </div>
-      <div className="space-y-1 mb-4 max-h-32 overflow-y-auto">
+    <div className="card flex-1 min-w-0">
+      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Content</p>
+      <InfoRow label="Title" value={<span className="font-semibold">{p?.title ?? title}</span>} />
+      <InfoRow label="Genre" value={p?.genre ?? '—'} />
+      <InfoRow label="Mood" value={p?.mood ?? '—'} />
+      <InfoRow label="Duration" value={p?.duration_minutes ? `${p.duration_minutes} min` : '—'} />
+      <InfoRow label="Language" value={p?.language ?? '—'} />
+      <InfoRow label="Type" value={p ? (p.is_series ? 'Series episode' : 'Movie') : '—'} />
+    </div>
+  )
+}
+
+function ContextCard({ c }: { c: SessionContext | undefined }) {
+  return (
+    <div className="card flex-1 min-w-0">
+      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Session Context</p>
+      <InfoRow label="Ads Shown" value={c?.ads_shown ?? '—'} />
+      <InfoRow label="Total Breaks" value={c?.total_breaks ?? '—'} />
+      <InfoRow label="Fatigue" value={c ? c.fatigue.toFixed(2) : '—'} />
+      <InfoRow label="Minutes Into Session" value={c?.session_depth ?? '—'} />
+      <InfoRow label="Content Duration" value={c?.content_duration ? `${c.content_duration} min` : '—'} />
+      <InfoRow label="Binge Mode" value={c ? (c.binge ? 'Yes' : 'No') : '—'} />
+    </div>
+  )
+}
+
+// ── session card ─────────────────────────────────────────────────────────────
+
+function SessionCard({
+  label, breaks, rating, onRate, readonly = false
+}: {
+  label: string; breaks: Break[]; rating: Rating
+  onRate?: (field: keyof Rating, v: number) => void; readonly?: boolean
+}) {
+  return (
+    <div className="card flex-1 min-w-0 space-y-4">
+      <h3 className="text-sm font-bold text-slate-300">Session {label}</h3>
+
+      {/* Break list */}
+      <div className="space-y-1.5">
         {breaks.length === 0
-          ? <p className="text-zinc-600 text-sm">No ad breaks</p>
+          ? <p className="text-xs text-slate-600">No ad breaks</p>
           : breaks.map((b, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-zinc-600 w-10 font-mono text-xs">{b.break_minute}m</span>
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-slate-500 font-mono text-xs w-8 shrink-0">{b.break_minute}m</span>
                 <DecisionBadge decision={b.decision} size="sm" />
-                <span className="text-zinc-500 text-xs">{b.ad_category}</span>
+                <span className="text-slate-500 text-xs">{b.ad_category}</span>
               </div>
             ))
         }
       </div>
-      <div className="border-t border-slate-700/50 pt-3 space-y-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">Annoyance</span>
-          <ScaleRating value={rating.annoyance} readonly />
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">Relevance</span>
-          <ScaleRating value={rating.relevance} readonly />
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">Would continue?</span>
-          <ScaleRating value={rating.willingness} readonly />
-        </div>
-        <div className="flex items-center justify-between pt-1 border-t border-slate-700/30">
-          <span className="text-xs text-slate-500">Score (willingness + relevance − annoyance)</span>
-          <span className={`text-sm font-bold font-mono ${score > 0 ? 'text-sky-400' : score < 0 ? 'text-red-400' : 'text-slate-400'}`}>
-            {score > 0 ? '+' : ''}{score}
-          </span>
-        </div>
+
+      {/* Ratings */}
+      <div className="border-t border-slate-700/40 pt-3 space-y-3">
+        {(['annoyance', 'relevance', 'willingness'] as (keyof Rating)[]).map((field) => (
+          <div key={field} className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              {field === 'willingness' ? 'Would Continue?' : field}
+            </span>
+            <ScaleRating
+              value={rating[field]}
+              onChange={readonly ? undefined : (v) => onRate?.(field, v)}
+              readonly={readonly}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-const DEFAULT_CUSTOM = {
-  person_name: '',
-  age_group: '25-34',
-  country: '',
-  interests: [] as string[],
-  ad_tolerance: 0.5,
-  show_title: '',
-  show_genre: 'Drama',
-  show_duration_minutes: 45,
-  is_series: false,
-}
-const DEFAULT_DURATION_STR = '45'
+// ── main component ───────────────────────────────────────────────────────────
 
 export default function ABTesting() {
   const [session, setSession] = useState<Session | null>(null)
-  const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null)
   const [xRating, setXRating] = useState<Rating>({ annoyance: 0, relevance: 0, willingness: 0 })
   const [yRating, setYRating] = useState<Rating>({ annoyance: 0, relevance: 0, willingness: 0 })
   const [submitted, setSubmitted] = useState(false)
@@ -205,133 +188,110 @@ export default function ABTesting() {
   const [error, setError] = useState<string | null>(null)
   const [showCustomForm, setShowCustomForm] = useState(false)
   const [custom, setCustom] = useState(DEFAULT_CUSTOM)
-  const [history, setHistory] = useState<Record<string, unknown>[] | null>(null)
-  const [historyAggregate, setHistoryAggregate] = useState<Record<string, unknown> | null>(null)
-  const [showHistory, setShowHistory] = useState(false)
   const [durationStr, setDurationStr] = useState(DEFAULT_DURATION_STR)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [showDescription, setShowDescription] = useState('')
 
-  useEffect(() => {
-    abApi.history().then((r) => {
-      const data = r.data as { sessions: Record<string, unknown>[]; aggregate: Record<string, unknown> }
-      setHistory(data.sessions)
-      setHistoryAggregate(data.aggregate)
-    }).catch(() => {})
-  }, [submitted])
-
-  function updateRating(which: 'X' | 'Y', field: keyof Rating, v: number) {
-    if (which === 'X') setXRating((r) => ({ ...r, [field]: v }))
-    else setYRating((r) => ({ ...r, [field]: v }))
-  }
-
-  function resetSession() {
-    setSession(null); setSessionDetail(null); setSubmitted(false); setResults(null); setError(null)
+  function reset() {
+    setSession(null); setSubmitted(false); setResults(null); setError(null)
     setXRating({ annoyance: 0, relevance: 0, willingness: 0 })
     setYRating({ annoyance: 0, relevance: 0, willingness: 0 })
-    setCustom(DEFAULT_CUSTOM); setDurationStr(DEFAULT_DURATION_STR)
-    setShowDescription('')
+    setCustom(DEFAULT_CUSTOM); setDurationStr(DEFAULT_DURATION_STR); setShowDescription('')
   }
 
-  async function lookupShow() {
-    if (!custom.show_title.trim()) { setError('Enter a show or movie title first.'); return }
-    setLookupLoading(true); setError(null)
+  async function loadFullSession(sessionId: string, base: Session) {
     try {
-      const r = await abApi.lookupShow(custom.show_title)
-      const d = r.data
-      setCustom((c) => ({
-        ...c,
-        show_genre: d.genre,
-        show_duration_minutes: d.duration_minutes,
-        is_series: d.is_series,
-      }))
-      setDurationStr(String(d.duration_minutes))
-      setShowDescription(d.description || '')
+      const detail = (await abApi.session(sessionId)).data as Session
+      setSession({ ...base, ...detail })
     } catch {
-      setError('Could not look up show — fill in the details manually.')
-    } finally {
-      setLookupLoading(false)
+      setSession(base) // fall back to whatever start returned
     }
   }
 
   async function startSession() {
-    resetSession(); setLoading(true)
+    reset(); setLoading(true)
     try {
-      const r = await abApi.start()
-      setSession(r.data as Session)
-    } catch { setError('Failed to start A/B session.') }
+      const base = (await abApi.start()).data as Session
+      setSession(base)
+      loadFullSession(base.session_id, base)
+    } catch { setError('Failed to start session.') }
     finally { setLoading(false) }
   }
 
   async function startCustomSession() {
-    if (custom.interests.length === 0) { setError('Please select at least one interest.'); return }
-    if (!custom.show_title.trim()) { setError('Please enter a show or movie title.'); return }
-    setSession(null); setSessionDetail(null); setSubmitted(false); setResults(null); setError(null)
-    setXRating({ annoyance: 0, relevance: 0, willingness: 0 })
-    setYRating({ annoyance: 0, relevance: 0, willingness: 0 })
-    setLoading(true)
+    if (!custom.interests.length) { setError('Select at least one interest.'); return }
+    if (!custom.show_title.trim()) { setError('Enter a show or movie title.'); return }
+    reset(); setLoading(true)
     try {
-      const r = await abApi.startCustom(custom)
-      setSession(r.data as Session)
+      const base = (await abApi.startCustom(custom)).data as Session
+      setSession(base)
       setShowCustomForm(false)
-    } catch { setError('Failed to start custom A/B session.') }
+      loadFullSession(base.session_id, base)
+    } catch { setError('Failed to start custom session.') }
     finally { setLoading(false) }
   }
 
   async function submitRatings() {
     if (!session) return
-    const missingX = Object.values(xRating).some((v) => v === 0)
-    const missingY = Object.values(yRating).some((v) => v === 0)
-    if (missingX || missingY) { setError('Please rate all fields for both sessions.'); return }
+    if (Object.values(xRating).some(v => v === 0) || Object.values(yRating).some(v => v === 0)) {
+      setError('Please rate all fields (1–10) for both sessions.'); return
+    }
     setLoading(true); setError(null)
     try {
       await abApi.rate(session.session_id, { session_label: 'X', ...xRating })
       await abApi.rate(session.session_id, { session_label: 'Y', ...yRating })
-      // Fetch the full session detail for the reveal
-      const [detailRes, resultsRes] = await Promise.all([
-        abApi.session(session.session_id),
-        abApi.results(),
-      ])
-      setSessionDetail(detailRes.data as SessionDetail)
-      setResults(resultsRes.data)
+      setResults((await abApi.results()).data)
       setSubmitted(true)
     } catch { setError('Failed to submit ratings.') }
     finally { setLoading(false) }
   }
 
-  function toggleInterestFixed(cat: string) {
-    setCustom((c) => ({
+  async function lookupShow() {
+    if (!custom.show_title.trim()) { setError('Enter a title first.'); return }
+    setLookupLoading(true); setError(null)
+    try {
+      const d = (await abApi.lookupShow(custom.show_title)).data
+      setCustom(c => ({ ...c, show_genre: d.genre, show_duration_minutes: d.duration_minutes, is_series: d.is_series }))
+      setDurationStr(String(d.duration_minutes))
+      setShowDescription(d.description || '')
+    } catch { setError('Could not look up show — fill in manually.') }
+    finally { setLookupLoading(false) }
+  }
+
+  function toggleInterest(cat: string) {
+    setCustom(c => ({
       ...c,
-      interests: c.interests.includes(cat)
-        ? c.interests.filter((i) => i !== cat)
-        : [...c.interests, cat],
+      interests: c.interests.includes(cat) ? c.interests.filter(i => i !== cat) : [...c.interests, cat]
     }))
   }
 
+  // Reveal logic
+  const sessionDetail = session && submitted ? session : null
+  let adaptadScore = 0, baselineScore = 0
+  let winner: 'adaptad' | 'baseline' | 'tie' | null = null
+  if (sessionDetail && (sessionDetail as unknown as { x_is_adaptad: boolean }).x_is_adaptad !== undefined) {
+    const xIsAdaptAd = (sessionDetail as unknown as { x_is_adaptad: boolean }).x_is_adaptad
+    const ar = xIsAdaptAd ? xRating : yRating
+    const br = xIsAdaptAd ? yRating : xRating
+    adaptadScore = ar.willingness + ar.relevance - ar.annoyance
+    baselineScore = br.willingness + br.relevance - br.annoyance
+    winner = adaptadScore > baselineScore ? 'adaptad' : adaptadScore < baselineScore ? 'baseline' : 'tie'
+  }
   const aggregate = (results as Record<string, unknown> | null)?.aggregate as Record<string, unknown> | undefined
 
-  // Determine this-session winner for the reveal
-  let thisSessionWinner: 'adaptad' | 'baseline' | 'tie' | null = null
-  let adaptadScore = 0
-  let baselineScore = 0
-  if (sessionDetail) {
-    const xIsAdaptAd = sessionDetail.x_is_adaptad
-    const adaptadRating = xIsAdaptAd ? xRating : yRating
-    const baselineRating = xIsAdaptAd ? yRating : xRating
-    adaptadScore = adaptadRating.willingness + adaptadRating.relevance - adaptadRating.annoyance
-    baselineScore = baselineRating.willingness + baselineRating.relevance - baselineRating.annoyance
-    thisSessionWinner = adaptadScore > baselineScore ? 'adaptad' : adaptadScore < baselineScore ? 'baseline' : 'tie'
-  }
+  const inputCls = "w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
 
   return (
     <div className="space-y-6">
+
+      {/* Header */}
       <div className="page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="page-title">A/B Testing</h1>
-          <p className="page-sub">Compare AdaptAd against random placement. You rate two mystery sessions — then we reveal which was which.</p>
+          <p className="page-sub">Compare AdaptAd against random placement. Labels are randomized to prevent bias.</p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <button className="btn-secondary" onClick={() => { resetSession(); setShowCustomForm((v) => !v) }} disabled={loading}>
+          <button className="btn-secondary" onClick={() => { reset(); setShowCustomForm(v => !v) }} disabled={loading}>
             {showCustomForm ? 'Cancel' : 'Use My Profile'}
           </button>
           <button className="btn-primary" onClick={startSession} disabled={loading}>
@@ -340,48 +300,49 @@ export default function ABTesting() {
         </div>
       </div>
 
-      {/* Custom person & show form */}
+      {/* Custom profile form */}
       {showCustomForm && (
         <div className="card border-sky-700/30 space-y-5">
           <div>
             <h2 className="section-title mb-1">Real Person & Show</h2>
-            <p className="text-xs text-slate-500">Enter your own profile and a show you're watching. AdaptAd will run a personalised A/B test.</p>
+            <p className="text-xs text-slate-500">Enter your profile and a show you're watching for a personalised test.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="label">Your name</label>
-              <input className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
-                placeholder="e.g. Priya Sharma" value={custom.person_name}
-                onChange={(e) => setCustom((c) => ({ ...c, person_name: e.target.value }))} />
+              <input className={inputCls} placeholder="e.g. Priya Sharma" value={custom.person_name}
+                onChange={e => setCustom(c => ({ ...c, person_name: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <label className="label">Country</label>
-              <input className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
-                placeholder="e.g. India" value={custom.country}
-                onChange={(e) => setCustom((c) => ({ ...c, country: e.target.value }))} />
+              <input className={inputCls} placeholder="e.g. India" value={custom.country}
+                onChange={e => setCustom(c => ({ ...c, country: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <label className="label">Age group</label>
-              <select className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
-                value={custom.age_group} onChange={(e) => setCustom((c) => ({ ...c, age_group: e.target.value }))}>
-                {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+              <select className={inputCls} value={custom.age_group}
+                onChange={e => setCustom(c => ({ ...c, age_group: e.target.value }))}>
+                {AGE_GROUPS.map(g => <option key={g}>{g}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="label">Ad tolerance <span className="text-sky-500 font-mono">{custom.ad_tolerance.toFixed(2)}</span></label>
+              <label className="label">Ad tolerance <span className="text-sky-400 font-mono">{custom.ad_tolerance.toFixed(2)}</span></label>
               <input type="range" min="0" max="1" step="0.05" className="w-full accent-sky-500"
-                value={custom.ad_tolerance} onChange={(e) => setCustom((c) => ({ ...c, ad_tolerance: parseFloat(e.target.value) }))} />
-              <div className="flex justify-between text-xs text-slate-600"><span>Low (dislike ads)</span><span>High (don't mind)</span></div>
+                value={custom.ad_tolerance}
+                onChange={e => setCustom(c => ({ ...c, ad_tolerance: parseFloat(e.target.value) }))} />
+              <div className="flex justify-between text-xs text-slate-600"><span>Low</span><span>High</span></div>
             </div>
           </div>
           <div className="space-y-2">
-            <label className="label">Your interests <span className="text-slate-600 font-normal">(select all that apply)</span></label>
+            <label className="label">Your interests</label>
             <div className="flex flex-wrap gap-2">
-              {AD_CATEGORIES.map((cat) => (
-                <button key={cat} onClick={() => toggleInterestFixed(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${custom.interests.includes(cat) ? 'bg-sky-600/20 border-sky-500/50 text-sky-300' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'}`}>
-                  {cat}
-                </button>
+              {AD_CATEGORIES.map(cat => (
+                <button key={cat} onClick={() => toggleInterest(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    custom.interests.includes(cat)
+                      ? 'bg-sky-600/20 border-sky-500/50 text-sky-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
+                  }`}>{cat}</button>
               ))}
             </div>
           </div>
@@ -391,56 +352,43 @@ export default function ABTesting() {
               <div className="flex gap-2">
                 <input className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
                   placeholder="e.g. Stranger Things" value={custom.show_title}
-                  onChange={(e) => { setCustom((c) => ({ ...c, show_title: e.target.value })); setShowDescription('') }} />
-                <button
-                  onClick={lookupShow}
-                  disabled={lookupLoading || !custom.show_title.trim()}
-                  className="shrink-0 px-3 py-2 bg-sky-700/30 hover:bg-sky-600/40 border border-sky-600/40 text-sky-300 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                >
+                  onChange={e => { setCustom(c => ({ ...c, show_title: e.target.value })); setShowDescription('') }} />
+                <button onClick={lookupShow} disabled={lookupLoading || !custom.show_title.trim()}
+                  className="shrink-0 px-3 py-2 bg-sky-700/30 hover:bg-sky-600/40 border border-sky-600/40 text-sky-300 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   {lookupLoading ? '…' : 'Look Up'}
                 </button>
               </div>
-              {showDescription && (
-                <p className="text-xs text-slate-500 italic mt-1">{showDescription}</p>
-              )}
+              {showDescription && <p className="text-xs text-slate-500 italic mt-1">{showDescription}</p>}
             </div>
             <div className="space-y-1">
               <label className="label">Genre</label>
-              <select className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
-                value={custom.show_genre} onChange={(e) => setCustom((c) => ({ ...c, show_genre: e.target.value }))}>
-                {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
+              <select className={inputCls} value={custom.show_genre}
+                onChange={e => setCustom(c => ({ ...c, show_genre: e.target.value }))}>
+                {GENRES.map(g => <option key={g}>{g}</option>)}
               </select>
             </div>
             <div className="space-y-1">
               <label className="label">Duration (minutes)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="e.g. 45"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-600"
+              <input type="text" inputMode="numeric" placeholder="e.g. 45" className={inputCls}
                 value={durationStr}
-                onChange={(e) => {
+                onChange={e => {
                   const raw = e.target.value.replace(/[^0-9]/g, '')
                   setDurationStr(raw)
-                  const parsed = parseInt(raw, 10)
-                  if (!isNaN(parsed) && parsed >= 10 && parsed <= 240) {
-                    setCustom((c) => ({ ...c, show_duration_minutes: parsed }))
-                  }
+                  const n = parseInt(raw, 10)
+                  if (!isNaN(n) && n >= 10 && n <= 240) setCustom(c => ({ ...c, show_duration_minutes: n }))
                 }}
                 onBlur={() => {
-                  const parsed = parseInt(durationStr, 10)
-                  const clamped = isNaN(parsed) || parsed < 10 ? 45 : Math.min(240, parsed)
-                  setDurationStr(String(clamped))
-                  setCustom((c) => ({ ...c, show_duration_minutes: clamped }))
-                }}
-              />
+                  const n = parseInt(durationStr, 10)
+                  const v = isNaN(n) || n < 10 ? 45 : Math.min(240, n)
+                  setDurationStr(String(v)); setCustom(c => ({ ...c, show_duration_minutes: v }))
+                }} />
               <p className="text-xs text-slate-600">10–240 minutes</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <input type="checkbox" id="is-series" className="accent-sky-500"
-              checked={custom.is_series} onChange={(e) => setCustom((c) => ({ ...c, is_series: e.target.checked }))} />
-            <label htmlFor="is-series" className="text-sm text-slate-400">This is a series episode (fewer ad breaks)</label>
+              checked={custom.is_series} onChange={e => setCustom(c => ({ ...c, is_series: e.target.checked }))} />
+            <label htmlFor="is-series" className="text-sm text-slate-400">This is a series episode</label>
           </div>
           <button className="btn-primary" onClick={startCustomSession} disabled={loading}>
             {loading ? 'Loading…' : 'Start with My Profile'}
@@ -448,334 +396,114 @@ export default function ABTesting() {
         </div>
       )}
 
-      {error && (
-        <div className="card border-red-700/40 bg-red-950/20 text-red-400 text-sm">{error}</div>
-      )}
+      {error && <div className="card border-red-700/40 bg-red-950/20 text-red-400 text-sm">{error}</div>}
 
-      {/* Rating phase */}
-      {session && !submitted && (
-        <>
-          <div className="card">
-            <p className="text-sm text-zinc-400">
-              Rate each session honestly. You do not know which system generated which.
-            </p>
-            <p className="text-xs text-zinc-600 mt-1.5">
-              Consider whether the ads feel disruptive and whether they fit the user and content context.
-            </p>
-          </div>
-                
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <ContextCard title="User">
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Name</span>
-                <span className="text-zinc-100 font-medium">{session.user_profile.name}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Age Group</span>
-                <span>{session.user_profile.age_group}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Profession</span>
-                <span>{session.user_profile.profession}</span>
-              </div>
-              <div>
-                <span className="text-zinc-500">Ad Interests</span>
-                <p className="mt-1 text-zinc-100">{session.user_profile.interests.join(', ')}</p>
-              </div>
-              <div>
-                <span className="text-zinc-500">Preferred Genres</span>
-                <p className="mt-1 text-zinc-100">{session.user_profile.content_preferences.join(', ')}</p>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Ad Tolerance</span>
-                <span>{session.user_profile.ad_tolerance}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Binge Tendency</span>
-                <span>{session.user_profile.binge_tendency}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Preferred Watch Time</span>
-                <span>{formatWatchTime(session.user_profile.preferred_watch_time)}</span>
-              </div>
-            </ContextCard>
-                
-            <ContextCard title="Content">
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Title</span>
-                <span className="text-zinc-100 font-medium">{session.content_profile.title}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Genre</span>
-                <span>{session.content_profile.genre ?? 'Unknown'}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Mood</span>
-                <span>{session.content_profile.mood ?? 'Unknown'}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Duration</span>
-                <span>
-                  {session.content_profile.duration != null
-                    ? `${session.content_profile.duration} min`
-                    : 'Unknown'}
-                </span>
-              </div>
-            </ContextCard>
-                  
-            <ContextCard title="Session Context">
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Ads Shown</span>
-                <span>{session.session_context.ads_shown}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Total Breaks</span>
-                <span>{session.session_context.total_breaks}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Fatigue</span>
-                <span>{session.session_context.fatigue}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Minutes Into Session</span>
-                <span>{session.session_context.session_depth}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Content Duration</span>
-                <span>
-                  {session.session_context.content_duration != null
-                    ? `${session.session_context.content_duration} min`
-                    : 'Unknown'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-zinc-500">Binge Mode</span>
-                <span>{session.session_context.binge ? 'Yes' : 'No'}</span>
-              </div>
-            </ContextCard>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <SessionView label="X" breaks={session.session_x as Break[]} rating={xRating} onRate={(f, v) => updateRating('X', f, v)} />
-            <SessionView label="Y" breaks={session.session_y as Break[]} rating={yRating} onRate={(f, v) => updateRating('Y', f, v)} />
-          </div>
-          <div className="card bg-slate-800/40 text-xs text-slate-500 leading-relaxed">
-            <span className="text-slate-300 font-semibold">How to rate: </span>
-            <span className="text-sky-400">Annoyance</span> — how disruptive did the ads feel? (1 = very annoying, 10 = barely noticeable) ·{' '}
-            <span className="text-sky-400">Relevance</span> — did the ads feel related to your interests? (1 = irrelevant, 10 = spot on) ·{' '}
-            <span className="text-sky-400">Would continue?</span> — would you keep watching? (1 = would quit, 10 = definitely)
-          </div>
-          <button className="btn-primary" onClick={submitRatings} disabled={loading}>
-            {loading ? 'Submitting…' : 'Submit Ratings & Reveal'}
-          </button>
-        </>
-      )}
-
-      {/* Reveal + results phase */}
-      {submitted && sessionDetail && aggregate && (
-        <div className="space-y-5">
-          {/* The reveal */}
-          <div className="card border-sky-700/30">
-            <h2 className="section-title mb-1">The Reveal</h2>
-            <p className="text-xs text-slate-500 mb-4">Here's what each session actually was, and the scores based on your ratings.</p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <RevealCard
-                label="X"
-                isAdaptAd={sessionDetail.x_is_adaptad}
-                breaks={session!.session_x as Break[]}
-                rating={xRating}
-              />
-              <RevealCard
-                label="Y"
-                isAdaptAd={!sessionDetail.x_is_adaptad}
-                breaks={session!.session_y as Break[]}
-                rating={yRating}
-              />
-            </div>
-          </div>
-
-          {/* This session verdict */}
-          <div className={`card space-y-4 ${
-            thisSessionWinner === 'adaptad' ? 'border-sky-500/40 bg-sky-900/10' :
-            thisSessionWinner === 'baseline' ? 'border-red-500/40 bg-red-900/10' :
-            'border-slate-600/40'
-          }`}>
-            <div>
-              {thisSessionWinner === 'adaptad' && <p className="text-sky-400 font-bold text-lg">AdaptAd won this round</p>}
-              {thisSessionWinner === 'baseline' && <p className="text-red-400 font-bold text-lg">Baseline won this round</p>}
-              {thisSessionWinner === 'tie' && <p className="text-slate-300 font-bold text-lg">This round was a tie</p>}
-            </div>
-
-            {/* Score breakdown */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1">
-                <p className="text-xs text-sky-400 font-semibold">AdaptAd score: <span className="font-mono text-white">{adaptadScore > 0 ? '+' : ''}{adaptadScore} / 19</span></p>
-                <p className="text-xs text-slate-500">Uses your profile (fatigue, interests, time of day, session depth) to decide <em>when</em> and <em>whether</em> to show each ad. It can choose to SHOW, SOFTEN (shorter ad), DELAY, or SUPPRESS.</p>
-              </div>
-              <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1">
-                <p className="text-xs text-slate-300 font-semibold">Random baseline score: <span className="font-mono text-white">{baselineScore > 0 ? '+' : ''}{baselineScore} / 19</span></p>
-                <p className="text-xs text-slate-500">No intelligence — randomly picks SHOW or SUPPRESS for every ad opportunity with no knowledge of who you are or what you're watching.</p>
-              </div>
-            </div>
-
-            {/* How the score works */}
-            <div className="bg-slate-800/40 rounded-xl px-4 py-3 text-xs text-slate-400 leading-relaxed">
-              <p className="text-slate-200 font-semibold mb-1">How the score is calculated</p>
-              <p>
-                Score = <span className="text-sky-400">Willingness to continue</span> + <span className="text-sky-400">Relevance</span> − <span className="text-red-400">Annoyance</span>.
-                Each metric is 1–10, so scores range from −8 (maximum annoyance, zero relevance, would quit) to +19 (not annoying at all, highly relevant, definitely keep watching).
-                The system with the higher score wins the round.
-              </p>
-            </div>
-
-            {/* What winning means */}
-            <div className="bg-slate-800/40 rounded-xl px-4 py-3 text-xs text-slate-400 leading-relaxed">
-              <p className="text-slate-200 font-semibold mb-1">What does a win mean?</p>
-              {thisSessionWinner === 'adaptad' && (
-                <p>AdaptAd's evolved chromosome made better ad decisions for this user and content. By timing ads carefully — suppressing them when you're fatigued, delaying them during intense scenes, only showing relevant ones — it produced a less annoying, more relevant viewing experience than random placement. This is the hypothesis (H1) we're testing: that an evolved policy beats a dumb baseline.</p>
-              )}
-              {thisSessionWinner === 'baseline' && (
-                <p>The random baseline happened to score higher this round. This can occur — random placement sometimes gets lucky and shows the right ad at the right moment purely by chance. One session isn't enough to draw conclusions; run more sessions to see if AdaptAd pulls ahead consistently.</p>
-              )}
-              {thisSessionWinner === 'tie' && (
-                <p>Both policies scored identically this round. This usually happens when the content has very few ad breaks, or your ratings were similar for both sessions. Run more sessions to build a clearer picture.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Running aggregate */}
-          <div className="card space-y-4">
-            <div>
-              <h2 className="section-title mb-1">Running Totals</h2>
-              <p className="text-xs text-slate-500">
-                Across all sessions completed in this browser session. The more sessions you run, the more statistically meaningful the result.
-                If AdaptAd consistently wins, it validates H1: the GA-evolved policy produces a measurably better viewing experience than random ad placement.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="card bg-show/5 border-show/20 text-center">
-                <p className="label mb-1">AdaptAd Wins</p>
-                <p className="text-3xl font-bold text-show">{String(aggregate.adaptad_wins)}</p>
-                <p className="text-xs text-slate-600 mt-2">Rounds where the evolved policy was preferred</p>
-              </div>
-              <div className="card bg-suppress/5 border-suppress/20 text-center">
-                <p className="label mb-1">Baseline Wins</p>
-                <p className="text-3xl font-bold text-suppress">{String(aggregate.baseline_wins)}</p>
-                <p className="text-xs text-slate-600 mt-2">Rounds where random placement was preferred</p>
-              </div>
-              <div className="card text-center">
-                <p className="label mb-1">Ties</p>
-                <p className="text-3xl font-bold text-zinc-400">{String(aggregate.ties)}</p>
-                <p className="text-xs text-slate-600 mt-2">Equal scores — no winner</p>
-              </div>
-            </div>
-          </div>
-
-          <button className="btn-secondary" onClick={startSession}>Run Another Session</button>
-        </div>
-      )}
-
+      {/* Empty state */}
       {!session && !loading && !showCustomForm && (
-        <div className="card h-48 flex items-center justify-center text-zinc-600 text-sm">
-          Click "New Session" for a random test, or "Use My Profile" to test with your own details
+        <div className="card h-48 flex items-center justify-center text-slate-600 text-sm">
+          Click "New Session" for a random test, or "Use My Profile" to test with your details
         </div>
       )}
 
-      {/* Persistent history from database */}
-      {history !== null && (
-        <div className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="section-title mb-0.5">Session History</h2>
-              <p className="text-xs text-slate-500">
-                All completed sessions saved to the database — persists across page reloads and server restarts.
-                {historyAggregate && Number(historyAggregate.total) > 0 && (
-                  <span className="ml-2 text-sky-400 font-medium">
-                    AdaptAd win rate: {Math.round(Number(historyAggregate.win_rate) * 100)}% across {Number(historyAggregate.total)} sessions
-                  </span>
-                )}
-              </p>
-            </div>
-            <button className="btn-secondary text-xs py-1 px-3" onClick={() => setShowHistory(v => !v)}>
-              {showHistory ? 'Hide' : `Show ${history.length}`}
-            </button>
+      {/* Session loaded */}
+      {session && (
+        <>
+          {/* Info banner */}
+          <div className="card bg-slate-800/60 border-slate-700/40">
+            <p className="text-sm text-slate-300 font-medium mb-1">Rate each session honestly.</p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              You do not know which system generated which. Consider whether the ads feel disruptive
+              and whether they fit the user and content context.
+            </p>
           </div>
 
-          {historyAggregate && Number(historyAggregate.total) > 0 && (
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-slate-800/50 rounded-xl p-3 text-center">
-                <p className="text-xs text-slate-500 mb-1">AdaptAd Wins</p>
-                <p className="text-xl font-bold text-show">{String(historyAggregate.adaptad_wins)}</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-xl p-3 text-center">
-                <p className="text-xs text-slate-500 mb-1">Baseline Wins</p>
-                <p className="text-xl font-bold text-suppress">{String(historyAggregate.baseline_wins)}</p>
-              </div>
-              <div className="bg-slate-800/50 rounded-xl p-3 text-center">
-                <p className="text-xs text-slate-500 mb-1">Ties</p>
-                <p className="text-xl font-bold text-zinc-400">{String(historyAggregate.ties)}</p>
-              </div>
+          {/* Three info panels — always shown, graceful fallback if profile not yet loaded */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <UserCard p={session.user_profile} name={session.user_name} />
+            <ContentCard p={session.content_profile} title={session.content_title} />
+            <ContextCard c={session.session_context} />
+          </div>
+
+          {/* Rating guide */}
+          {!submitted && (
+            <div className="card bg-slate-800/40 border-slate-700/30 text-xs text-slate-500 leading-relaxed">
+              <span className="text-slate-300 font-semibold">How to rate (1–10): </span>
+              <span className="text-sky-400">Annoyance</span> — 1 = very annoying, 10 = barely noticeable ·{' '}
+              <span className="text-sky-400">Relevance</span> — 1 = irrelevant, 10 = spot on ·{' '}
+              <span className="text-sky-400">Would Continue</span> — 1 = would quit, 10 = definitely keep watching
             </div>
           )}
 
-          {showHistory && history.length === 0 && (
-            <p className="text-xs text-slate-600 text-center py-4">No completed sessions yet. Run and rate a session to see it here.</p>
+          {/* Session cards */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <SessionCard
+              label="X"
+              breaks={session.session_x as Break[]}
+              rating={xRating}
+              onRate={(f, v) => setXRating(r => ({ ...r, [f]: v }))}
+              readonly={submitted}
+            />
+            <SessionCard
+              label="Y"
+              breaks={session.session_y as Break[]}
+              rating={yRating}
+              onRate={(f, v) => setYRating(r => ({ ...r, [f]: v }))}
+              readonly={submitted}
+            />
+          </div>
+
+          {/* Submit */}
+          {!submitted && (
+            <button className="btn-primary" onClick={submitRatings} disabled={loading}>
+              {loading ? 'Submitting…' : 'Submit Ratings & Reveal'}
+            </button>
           )}
 
-          {showHistory && history.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-700/50 text-slate-500">
-                    <th className="text-left py-2 pr-4 font-medium">User</th>
-                    <th className="text-left py-2 pr-4 font-medium">Age / Country</th>
-                    <th className="text-left py-2 pr-4 font-medium">Content</th>
-                    <th className="text-left py-2 pr-4 font-medium">Interests</th>
-                    <th className="text-center py-2 pr-4 font-medium">AdaptAd</th>
-                    <th className="text-center py-2 pr-4 font-medium">Baseline</th>
-                    <th className="text-center py-2 font-medium">Winner</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((s) => (
-                    <tr key={String(s.session_id)} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                      <td className="py-2 pr-4 text-slate-300 font-medium">
-                        {String(s.user_name)}
-                        {Boolean(s.is_custom) && (
-                          <span className="ml-1 text-sky-600 text-[10px]">custom</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-4 text-slate-500">
-                        {String(s.user_age_group)}{s.user_country ? ` · ${String(s.user_country)}` : ''}
-                      </td>
-                      <td className="py-2 pr-4 text-slate-400 max-w-[160px] truncate">
-                        {String(s.content_title)}
-                        <span className="ml-1 text-slate-600">{String(s.content_genre)}</span>
-                      </td>
-                      <td className="py-2 pr-4 text-slate-500">
-                        {(s.user_interests as string[]).slice(0, 3).join(', ')}
-                      </td>
-                      <td className="py-2 pr-4 text-center font-mono">
-                        <span className={Number(s.adaptad_score) > Number(s.baseline_score) ? 'text-sky-400 font-bold' : 'text-slate-500'}>
-                          {s.adaptad_score != null ? (Number(s.adaptad_score) > 0 ? `+${s.adaptad_score}` : String(s.adaptad_score)) : '—'}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-4 text-center font-mono">
-                        <span className={Number(s.baseline_score) > Number(s.adaptad_score) ? 'text-red-400 font-bold' : 'text-slate-500'}>
-                          {s.baseline_score != null ? (Number(s.baseline_score) > 0 ? `+${s.baseline_score}` : String(s.baseline_score)) : '—'}
-                        </span>
-                      </td>
-                      <td className="py-2 text-center">
-                        {s.winner === 'adaptad' && <span className="px-2 py-0.5 bg-sky-600/20 text-sky-400 rounded-full text-[10px] font-semibold">AdaptAd</span>}
-                        {s.winner === 'baseline' && <span className="px-2 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px] font-semibold">Baseline</span>}
-                        {s.winner === 'tie' && <span className="px-2 py-0.5 bg-slate-700 text-slate-400 rounded-full text-[10px] font-semibold">Tie</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Reveal */}
+          {submitted && winner && (
+            <div className={`card space-y-4 ${
+              winner === 'adaptad' ? 'border-sky-500/40 bg-sky-900/10' :
+              winner === 'baseline' ? 'border-red-500/40 bg-red-900/10' : 'border-slate-600/40'
+            }`}>
+              <div>
+                {winner === 'adaptad' && <p className="text-sky-400 font-bold text-lg">AdaptAd won this round</p>}
+                {winner === 'baseline' && <p className="text-red-400 font-bold text-lg">Baseline won this round</p>}
+                {winner === 'tie' && <p className="text-slate-300 font-bold text-lg">This round was a tie</p>}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-slate-800/60 rounded-xl px-4 py-3">
+                  <p className="text-xs text-sky-400 font-semibold mb-1">AdaptAd score: <span className="font-mono text-white">{adaptadScore > 0 ? '+' : ''}{adaptadScore} / 19</span></p>
+                  <p className="text-xs text-slate-500">Uses your profile to decide when and whether to show each ad.</p>
+                </div>
+                <div className="bg-slate-800/60 rounded-xl px-4 py-3">
+                  <p className="text-xs text-slate-300 font-semibold mb-1">Random baseline score: <span className="font-mono text-white">{baselineScore > 0 ? '+' : ''}{baselineScore} / 19</span></p>
+                  <p className="text-xs text-slate-500">No intelligence — randomly shows or suppresses with no context.</p>
+                </div>
+              </div>
+              <div className="bg-slate-800/40 rounded-xl px-4 py-3 text-xs text-slate-400 leading-relaxed">
+                <p className="text-slate-200 font-semibold mb-1">How the score works</p>
+                <p>Score = Willingness + Relevance − Annoyance. Range: −8 (worst) to +19 (best). Higher wins.</p>
+              </div>
+              {aggregate && (
+                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-700/40">
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 mb-1">AdaptAd Wins</p>
+                    <p className="text-2xl font-bold text-sky-400">{String(aggregate.adaptad_wins)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 mb-1">Baseline Wins</p>
+                    <p className="text-2xl font-bold text-red-400">{String(aggregate.baseline_wins)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 mb-1">Ties</p>
+                    <p className="text-2xl font-bold text-slate-400">{String(aggregate.ties)}</p>
+                  </div>
+                </div>
+              )}
+              <button className="btn-secondary" onClick={startSession}>Run Another Session</button>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )
