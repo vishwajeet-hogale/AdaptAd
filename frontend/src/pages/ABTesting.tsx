@@ -17,15 +17,21 @@ interface SessionDetail extends Session {
 }
 interface Rating { annoyance: number; relevance: number; willingness: number }
 
-function StarRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
+function ScaleRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
   return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
+    <div className="flex gap-1 flex-wrap">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
         <button
           key={n}
           onClick={() => !readonly && onChange?.(n)}
-          className={`text-lg transition-colors ${n <= value ? 'text-yellow-400' : 'text-zinc-700'} ${!readonly ? 'hover:text-zinc-500 cursor-pointer' : 'cursor-default'}`}
-        >★</button>
+          className={`w-7 h-7 rounded-md text-xs font-semibold transition-colors border ${
+            n === value
+              ? 'bg-sky-600 border-sky-500 text-white'
+              : readonly
+              ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-default'
+              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-sky-500 hover:text-sky-300 cursor-pointer'
+          }`}
+        >{n}</button>
       ))}
     </div>
   )
@@ -50,15 +56,15 @@ function SessionView({ label, breaks, rating, onRate }: { label: string; breaks:
       <div className="border-t border-violet-900/30 pt-3 space-y-3">
         <div className="flex items-center justify-between">
           <span className="label">Annoyance</span>
-          <StarRating value={rating.annoyance} onChange={(v) => onRate('annoyance', v)} />
+          <ScaleRating value={rating.annoyance} onChange={(v) => onRate('annoyance', v)} />
         </div>
         <div className="flex items-center justify-between">
           <span className="label">Relevance</span>
-          <StarRating value={rating.relevance} onChange={(v) => onRate('relevance', v)} />
+          <ScaleRating value={rating.relevance} onChange={(v) => onRate('relevance', v)} />
         </div>
         <div className="flex items-center justify-between">
           <span className="label">Would continue?</span>
-          <StarRating value={rating.willingness} onChange={(v) => onRate('willingness', v)} />
+          <ScaleRating value={rating.willingness} onChange={(v) => onRate('willingness', v)} />
         </div>
       </div>
     </div>
@@ -92,15 +98,15 @@ function RevealCard({
       <div className="border-t border-slate-700/50 pt-3 space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500">Annoyance</span>
-          <StarRating value={rating.annoyance} readonly />
+          <ScaleRating value={rating.annoyance} readonly />
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500">Relevance</span>
-          <StarRating value={rating.relevance} readonly />
+          <ScaleRating value={rating.relevance} readonly />
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500">Would continue?</span>
-          <StarRating value={rating.willingness} readonly />
+          <ScaleRating value={rating.willingness} readonly />
         </div>
         <div className="flex items-center justify-between pt-1 border-t border-slate-700/30">
           <span className="text-xs text-slate-500">Score (willingness + relevance − annoyance)</span>
@@ -406,9 +412,9 @@ export default function ABTesting() {
           </div>
           <div className="card bg-slate-800/40 text-xs text-slate-500 leading-relaxed">
             <span className="text-slate-300 font-semibold">How to rate: </span>
-            <span className="text-sky-400">Annoyance</span> — how disruptive did the ads feel? (1 = very annoying, 5 = barely noticeable) ·{' '}
-            <span className="text-sky-400">Relevance</span> — did the ads feel related to your interests? ·{' '}
-            <span className="text-sky-400">Would continue?</span> — would you keep watching after this experience?
+            <span className="text-sky-400">Annoyance</span> — how disruptive did the ads feel? (1 = very annoying, 10 = barely noticeable) ·{' '}
+            <span className="text-sky-400">Relevance</span> — did the ads feel related to your interests? (1 = irrelevant, 10 = spot on) ·{' '}
+            <span className="text-sky-400">Would continue?</span> — would you keep watching? (1 = would quit, 10 = definitely)
           </div>
           <button className="btn-primary" onClick={submitRatings} disabled={loading}>
             {loading ? 'Submitting…' : 'Submit Ratings & Reveal'}
@@ -454,11 +460,11 @@ export default function ABTesting() {
             {/* Score breakdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1">
-                <p className="text-xs text-sky-400 font-semibold">AdaptAd score: <span className="font-mono text-white">{adaptadScore > 0 ? '+' : ''}{adaptadScore} / 10</span></p>
+                <p className="text-xs text-sky-400 font-semibold">AdaptAd score: <span className="font-mono text-white">{adaptadScore > 0 ? '+' : ''}{adaptadScore} / 19</span></p>
                 <p className="text-xs text-slate-500">Uses your profile (fatigue, interests, time of day, session depth) to decide <em>when</em> and <em>whether</em> to show each ad. It can choose to SHOW, SOFTEN (shorter ad), DELAY, or SUPPRESS.</p>
               </div>
               <div className="bg-slate-800/60 rounded-xl px-4 py-3 space-y-1">
-                <p className="text-xs text-slate-300 font-semibold">Random baseline score: <span className="font-mono text-white">{baselineScore > 0 ? '+' : ''}{baselineScore} / 10</span></p>
+                <p className="text-xs text-slate-300 font-semibold">Random baseline score: <span className="font-mono text-white">{baselineScore > 0 ? '+' : ''}{baselineScore} / 19</span></p>
                 <p className="text-xs text-slate-500">No intelligence — randomly picks SHOW or SUPPRESS for every ad opportunity with no knowledge of who you are or what you're watching.</p>
               </div>
             </div>
@@ -468,7 +474,7 @@ export default function ABTesting() {
               <p className="text-slate-200 font-semibold mb-1">How the score is calculated</p>
               <p>
                 Score = <span className="text-sky-400">Willingness to continue</span> + <span className="text-sky-400">Relevance</span> − <span className="text-red-400">Annoyance</span>.
-                Each metric is 1–5, so scores range from −3 (very annoying, irrelevant, would quit) to +9 (not annoying, very relevant, would keep watching).
+                Each metric is 1–10, so scores range from −8 (maximum annoyance, zero relevance, would quit) to +19 (not annoying at all, highly relevant, definitely keep watching).
                 The system with the higher score wins the round.
               </p>
             </div>

@@ -265,16 +265,18 @@ def _natural_break_points(
     duration: int, is_series: bool, intensity_curve: list[float], rng: random.Random
 ) -> list[int]:
     """
-    Place break points at low-intensity minutes, avoiding first/last 5 min.
+    Place ad break opportunities at regular 10-minute intervals, nudged to the
+    nearest low-intensity moment within a ±2 minute window.
 
-    Both the minimum gap between breaks and the target number of breaks scale
-    with the usable content window so short episodes (20 min) and long movies
-    (120 min) each get a realistic spread.
+    This mirrors how real streaming services schedule breaks:
+    - Standard: opportunity every 10 minutes (AdaptAd agents then decide SHOW/SUPPRESS)
+    - Short content (≤25 min): one break around the midpoint
+    - First and last 5 minutes of content are always ad-free
 
-    Usable window  | min_gap | max breaks (series / movie)
-    ≤ 15 min       |  5 min  |  1 / 2
-    ≤ 40 min       |  8 min  |  3 / 4
-    > 40 min       | 12 min  |  3 / 6
+    Duration   | interval | example breaks
+    ≤ 25 min   | midpoint | ~12m
+    26–60 min  | 10 min   | ~15m, ~25m, ~35m  (45-min episode)
+    60+ min    | 10 min   | ~15m, ~25m, …, ~75m (90-min movie)
     """
     buffer = 5
     start = buffer
@@ -282,43 +284,26 @@ def _natural_break_points(
     if end <= start:
         return []
 
-    available = end - start  # usable minutes
+    nudge_window = 2  # ±minutes to search for a low-intensity moment
 
-    # Scale min_gap to content length.
-    if available <= 15:
-        min_gap = 5
-    elif available <= 40:
-        min_gap = 8
-    else:
-        min_gap = 12
+    # Very short content: single break at the midpoint.
+    if duration <= 25:
+        mid = duration // 2
+        candidates = [m for m in range(max(start, mid - nudge_window), min(end, mid + nudge_window) + 1)]
+        best = min(candidates, key=lambda m: intensity_curve[m]) if candidates else mid
+        return [best]
 
-    # Maximum breaks that can realistically fit with the gap constraint.
-    max_fits = max(1, available // min_gap)
-
-    if is_series:
-        num_breaks = rng.randint(1, min(3, max_fits))
-    else:
-        num_breaks = rng.randint(2, min(6, max_fits))
-
-    # Build a weighted pool biased toward low-intensity moments.
-    eligible = list(range(start, end + 1))
-    weighted = [(m, 1.0 / (intensity_curve[m] + 0.1)) for m in eligible]
-    minutes = [m for m, _ in weighted]
-    weights = [w for _, w in weighted]
-
-    # Sample a large candidate pool then keep points that respect the min gap.
-    candidates = sorted(set(rng.choices(minutes, weights=weights, k=max(num_breaks * 10, 30))))
+    # Longer content: regular 10-minute intervals.
+    interval = 10
     result: list[int] = []
-    for m in candidates:
-        if not result or m - result[-1] >= min_gap:
-            result.append(m)
-        if len(result) >= num_breaks:
-            break
-
-    # Fallback: evenly space using the adaptive gap if sampling didn't fill quota.
-    if len(result) < num_breaks:
-        step = max(min_gap, available // (num_breaks + 1))
-        result = [start + step * i for i in range(1, num_breaks + 1) if start + step * i <= end]
+    t = start + interval
+    while t <= end:
+        window = range(max(start, t - nudge_window), min(end, t + nudge_window) + 1)
+        best = min(window, key=lambda m: intensity_curve[m])
+        # Avoid duplicates (nudging can land two interval marks on the same minute).
+        if not result or best != result[-1]:
+            result.append(best)
+        t += interval
 
     return sorted(result)
 

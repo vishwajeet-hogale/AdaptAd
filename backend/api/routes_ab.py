@@ -83,8 +83,8 @@ class ABRatingRequest(BaseModel):
     @field_validator("annoyance", "relevance", "willingness")
     @classmethod
     def validate_rating(cls, v: int) -> int:
-        if not 1 <= v <= 5:
-            raise ValueError("Rating must be between 1 and 5.")
+        if not 1 <= v <= 10:
+            raise ValueError("Rating must be between 1 and 10.")
         return v
 
 
