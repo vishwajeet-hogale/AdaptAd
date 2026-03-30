@@ -7,15 +7,58 @@ const AGE_GROUPS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']
 const GENRES = ['Action', 'Comedy', 'Drama', 'Sci-Fi', 'Horror', 'Documentary', 'Romance', 'Thriller', 'Animation', 'Fantasy']
 
 interface Break { break_minute: number; ad_category: string; decision: string }
+interface UserProfile {
+  id: number
+  name: string
+  age_group: string
+  profession: string
+  interests: string[]
+  content_preferences: string[]
+  binge_tendency: number
+  fatigue_level: number
+  engagement_score: number
+  ad_tolerance: number
+  preferred_watch_time: string
+  session_count: number
+}
+
+interface ContentProfile {
+  id: number
+  title: string
+  genre?: string | null
+  duration?: number | null
+  mood?: string | null
+}
+
+interface SessionContext {
+  ads_shown: number
+  total_breaks: number
+  fatigue: number
+  session_depth: number
+  content_duration?: number | null
+  binge: boolean
+}
+
 interface Session {
-  session_id: string; user_name: string; content_title: string
-  session_x: Break[]; session_y: Break[]
+  session_id: string
+  user_name: string
+  content_title: string
+  user_profile: UserProfile
+  content_profile: ContentProfile
+  session_context: SessionContext
+  session_x: Break[]
+  session_y: Break[]
 }
-interface SessionDetail extends Session {
-  x_is_adaptad: boolean
-  ratings: Record<string, { annoyance: number; relevance: number; willingness: number }>
+
+interface Rating {
+  annoyance: number
+  relevance: number
+  willingness: number
 }
-interface Rating { annoyance: number; relevance: number; willingness: number }
+
+function formatWatchTime(value: string) {
+  return value.replace('TimeOfDay.', '')
+}
 
 function StarRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
   return (
@@ -27,6 +70,21 @@ function StarRating({ value, onChange, readonly }: { value: number; onChange?: (
           className={`text-lg transition-colors ${n <= value ? 'text-yellow-400' : 'text-zinc-700'} ${!readonly ? 'hover:text-zinc-500 cursor-pointer' : 'cursor-default'}`}
         >★</button>
       ))}
+    </div>
+  )
+}
+
+function ContextCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="card">
+      <h3 className="section-title mb-3">{title}</h3>
+      <div className="space-y-2 text-sm text-zinc-300">{children}</div>
     </div>
   )
 }
@@ -389,16 +447,102 @@ export default function ABTesting() {
         <>
           <div className="card">
             <p className="text-sm text-zinc-400">
-              User: <span className="text-zinc-100 font-medium">{session.user_name}</span>
-              <span className="text-zinc-600 mx-2">·</span>
-              Content: <span className="text-zinc-100 font-medium">{session.content_title}</span>
+              Rate each session honestly. You do not know which system generated which.
             </p>
-            <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
-              Below are two ad schedules for the same user watching the same content.
-              One was decided by <span className="text-sky-400">AdaptAd</span> (considering fatigue, relevance, timing).
-              The other is a <span className="text-slate-300">random baseline</span> (show or suppress at random).
-              The labels are shuffled — you don't know which is which. Rate honestly, then submit to see the reveal.
+            <p className="text-xs text-zinc-600 mt-1.5">
+              Consider whether the ads feel disruptive and whether they fit the user and content context.
             </p>
+          </div>
+                
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <ContextCard title="User">
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Name</span>
+                <span className="text-zinc-100 font-medium">{session.user_profile.name}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Age Group</span>
+                <span>{session.user_profile.age_group}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Profession</span>
+                <span>{session.user_profile.profession}</span>
+              </div>
+              <div>
+                <span className="text-zinc-500">Ad Interests</span>
+                <p className="mt-1 text-zinc-100">{session.user_profile.interests.join(', ')}</p>
+              </div>
+              <div>
+                <span className="text-zinc-500">Preferred Genres</span>
+                <p className="mt-1 text-zinc-100">{session.user_profile.content_preferences.join(', ')}</p>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Ad Tolerance</span>
+                <span>{session.user_profile.ad_tolerance}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Binge Tendency</span>
+                <span>{session.user_profile.binge_tendency}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Preferred Watch Time</span>
+                <span>{formatWatchTime(session.user_profile.preferred_watch_time)}</span>
+              </div>
+            </ContextCard>
+                
+            <ContextCard title="Content">
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Title</span>
+                <span className="text-zinc-100 font-medium">{session.content_profile.title}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Genre</span>
+                <span>{session.content_profile.genre ?? 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Mood</span>
+                <span>{session.content_profile.mood ?? 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Duration</span>
+                <span>
+                  {session.content_profile.duration != null
+                    ? `${session.content_profile.duration} min`
+                    : 'Unknown'}
+                </span>
+              </div>
+            </ContextCard>
+                  
+            <ContextCard title="Session Context">
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Ads Shown</span>
+                <span>{session.session_context.ads_shown}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Total Breaks</span>
+                <span>{session.session_context.total_breaks}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Fatigue</span>
+                <span>{session.session_context.fatigue}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Minutes Into Session</span>
+                <span>{session.session_context.session_depth}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Content Duration</span>
+                <span>
+                  {session.session_context.content_duration != null
+                    ? `${session.session_context.content_duration} min`
+                    : 'Unknown'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-500">Binge Mode</span>
+                <span>{session.session_context.binge ? 'Yes' : 'No'}</span>
+              </div>
+            </ContextCard>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <SessionView label="X" breaks={session.session_x as Break[]} rating={xRating} onRate={(f, v) => updateRating('X', f, v)} />
