@@ -6,6 +6,10 @@ const AD_CATEGORIES = ['tech', 'food', 'auto', 'fashion', 'finance', 'travel', '
 const AGE_GROUPS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']
 const GENRES = ['Action', 'Comedy', 'Drama', 'Sci-Fi', 'Horror', 'Documentary', 'Romance', 'Thriller', 'Animation', 'Fantasy']
 
+interface SessionDetail extends Session {
+  x_is_adaptad: boolean
+}
+
 interface Break { break_minute: number; ad_category: string; decision: string }
 interface UserProfile {
   id: number
@@ -550,7 +554,7 @@ export default function ABTesting() {
           </div>
           <div className="card bg-slate-800/40 text-xs text-slate-500 leading-relaxed">
             <span className="text-slate-300 font-semibold">How to rate: </span>
-            <span className="text-sky-400">Annoyance</span> — how disruptive did the ads feel? (1 = very annoying, 5 = barely noticeable) ·{' '}
+            <span className="text-sky-400">Annoyance</span> — how disruptive did the ads feel? (1 = barely noticeable, 5 = very annoying)
             <span className="text-sky-400">Relevance</span> — did the ads feel related to your interests? ·{' '}
             <span className="text-sky-400">Would continue?</span> — would you keep watching after this experience?
           </div>
@@ -730,7 +734,9 @@ export default function ABTesting() {
                     <tr key={String(s.session_id)} className="border-b border-slate-800/50 hover:bg-slate-800/20">
                       <td className="py-2 pr-4 text-slate-300 font-medium">
                         {String(s.user_name)}
-                        {s.is_custom && <span className="ml-1 text-sky-600 text-[10px]">custom</span>}
+                        {Boolean(s.is_custom) && (
+                          <span className="ml-1 text-sky-600 text-[10px]">custom</span>
+                        )}
                       </td>
                       <td className="py-2 pr-4 text-slate-500">
                         {String(s.user_age_group)}{s.user_country ? ` · ${String(s.user_country)}` : ''}
