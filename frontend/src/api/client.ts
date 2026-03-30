@@ -103,6 +103,7 @@ export const abApi = {
     api.post(`/ab/${sessionId}/rate`, params),
   results: () => api.get('/ab/results'),
   session: (sessionId: string) => api.get(`/ab/${sessionId}`),
+  history: (limit = 100) => api.get(`/ab/history?limit=${limit}`),
 }
 
 export const experimentApi = {

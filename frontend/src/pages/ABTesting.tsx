@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { abApi } from '../api/client'
 import DecisionBadge from '../components/DecisionBadge'
 
@@ -136,6 +136,17 @@ export default function ABTesting() {
   const [error, setError] = useState<string | null>(null)
   const [showCustomForm, setShowCustomForm] = useState(false)
   const [custom, setCustom] = useState(DEFAULT_CUSTOM)
+  const [history, setHistory] = useState<Record<string, unknown>[] | null>(null)
+  const [historyAggregate, setHistoryAggregate] = useState<Record<string, unknown> | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+
+  useEffect(() => {
+    abApi.history().then((r) => {
+      const data = r.data as { sessions: Record<string, unknown>[]; aggregate: Record<string, unknown> }
+      setHistory(data.sessions)
+      setHistoryAggregate(data.aggregate)
+    }).catch(() => {})
+  }, [submitted])
 
   function updateRating(which: 'X' | 'Y', field: keyof Rating, v: number) {
     if (which === 'X') setXRating((r) => ({ ...r, [field]: v }))
@@ -461,6 +472,102 @@ export default function ABTesting() {
       {!session && !loading && !showCustomForm && (
         <div className="card h-48 flex items-center justify-center text-zinc-600 text-sm">
           Click "New Session" for a random test, or "Use My Profile" to test with your own details
+        </div>
+      )}
+
+      {/* Persistent history from database */}
+      {history !== null && (
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="section-title mb-0.5">Session History</h2>
+              <p className="text-xs text-slate-500">
+                All completed sessions saved to the database — persists across page reloads and server restarts.
+                {historyAggregate && Number(historyAggregate.total) > 0 && (
+                  <span className="ml-2 text-sky-400 font-medium">
+                    AdaptAd win rate: {Math.round(Number(historyAggregate.win_rate) * 100)}% across {Number(historyAggregate.total)} sessions
+                  </span>
+                )}
+              </p>
+            </div>
+            <button className="btn-secondary text-xs py-1 px-3" onClick={() => setShowHistory(v => !v)}>
+              {showHistory ? 'Hide' : `Show ${history.length}`}
+            </button>
+          </div>
+
+          {historyAggregate && Number(historyAggregate.total) > 0 && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p className="text-xs text-slate-500 mb-1">AdaptAd Wins</p>
+                <p className="text-xl font-bold text-show">{String(historyAggregate.adaptad_wins)}</p>
+              </div>
+              <div className="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p className="text-xs text-slate-500 mb-1">Baseline Wins</p>
+                <p className="text-xl font-bold text-suppress">{String(historyAggregate.baseline_wins)}</p>
+              </div>
+              <div className="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p className="text-xs text-slate-500 mb-1">Ties</p>
+                <p className="text-xl font-bold text-zinc-400">{String(historyAggregate.ties)}</p>
+              </div>
+            </div>
+          )}
+
+          {showHistory && history.length === 0 && (
+            <p className="text-xs text-slate-600 text-center py-4">No completed sessions yet. Run and rate a session to see it here.</p>
+          )}
+
+          {showHistory && history.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-700/50 text-slate-500">
+                    <th className="text-left py-2 pr-4 font-medium">User</th>
+                    <th className="text-left py-2 pr-4 font-medium">Age / Country</th>
+                    <th className="text-left py-2 pr-4 font-medium">Content</th>
+                    <th className="text-left py-2 pr-4 font-medium">Interests</th>
+                    <th className="text-center py-2 pr-4 font-medium">AdaptAd</th>
+                    <th className="text-center py-2 pr-4 font-medium">Baseline</th>
+                    <th className="text-center py-2 font-medium">Winner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((s) => (
+                    <tr key={String(s.session_id)} className="border-b border-slate-800/50 hover:bg-slate-800/20">
+                      <td className="py-2 pr-4 text-slate-300 font-medium">
+                        {String(s.user_name)}
+                        {s.is_custom && <span className="ml-1 text-sky-600 text-[10px]">custom</span>}
+                      </td>
+                      <td className="py-2 pr-4 text-slate-500">
+                        {String(s.user_age_group)}{s.user_country ? ` · ${String(s.user_country)}` : ''}
+                      </td>
+                      <td className="py-2 pr-4 text-slate-400 max-w-[160px] truncate">
+                        {String(s.content_title)}
+                        <span className="ml-1 text-slate-600">{String(s.content_genre)}</span>
+                      </td>
+                      <td className="py-2 pr-4 text-slate-500">
+                        {(s.user_interests as string[]).slice(0, 3).join(', ')}
+                      </td>
+                      <td className="py-2 pr-4 text-center font-mono">
+                        <span className={Number(s.adaptad_score) > Number(s.baseline_score) ? 'text-sky-400 font-bold' : 'text-slate-500'}>
+                          {s.adaptad_score != null ? (Number(s.adaptad_score) > 0 ? `+${s.adaptad_score}` : String(s.adaptad_score)) : '—'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-center font-mono">
+                        <span className={Number(s.baseline_score) > Number(s.adaptad_score) ? 'text-red-400 font-bold' : 'text-slate-500'}>
+                          {s.baseline_score != null ? (Number(s.baseline_score) > 0 ? `+${s.baseline_score}` : String(s.baseline_score)) : '—'}
+                        </span>
+                      </td>
+                      <td className="py-2 text-center">
+                        {s.winner === 'adaptad' && <span className="px-2 py-0.5 bg-sky-600/20 text-sky-400 rounded-full text-[10px] font-semibold">AdaptAd</span>}
+                        {s.winner === 'baseline' && <span className="px-2 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px] font-semibold">Baseline</span>}
+                        {s.winner === 'tie' && <span className="px-2 py-0.5 bg-slate-700 text-slate-400 rounded-full text-[10px] font-semibold">Tie</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

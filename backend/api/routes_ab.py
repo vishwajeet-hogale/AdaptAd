@@ -22,6 +22,7 @@ from ..simulation.session import simulate_session, apply_decision
 from ..simulation.fatigue import should_force_suppress
 from ..state import AdDecision, Chromosome, ContentMood, ContentItem, Season, TimeOfDay, UserProfile
 from ..data.content_library import GENRE_MOODS, _generate_intensity_curve, _natural_break_points
+from ..db.database import save_ab_session_sync, save_ab_rating_sync, get_ab_history_sync
 from .routes_data import get_users, get_ads, get_content
 from .routes_decide import get_chromosome
 
@@ -175,19 +176,28 @@ def start_ab_session(req: ABStartRequest):
         x_is_adaptad = False
 
     session_id = str(uuid.uuid4())
-    _ab_sessions[session_id] = {
+    session_data = {
         "session_id": session_id,
         "user_id": user.id,
         "user_name": user.name,
+        "user_age_group": user.age_group,
+        "user_country": getattr(user, "country", ""),
+        "user_interests": user.interests,
+        "user_ad_tolerance": user.ad_tolerance,
         "content_id": content.id,
         "content_title": content.title,
+        "content_genre": content.genre,
+        "content_language": getattr(content, "language", "English"),
         "session_x": session_x_records,
         "session_y": session_y_records,
         "x_is_adaptad": x_is_adaptad,
         "ratings": {},
         "created_at": datetime.utcnow().isoformat(),
         "completed": False,
+        "is_custom": False,
     }
+    _ab_sessions[session_id] = session_data
+    save_ab_session_sync(session_data)
 
     return {
         "session_id": session_id,
@@ -222,6 +232,17 @@ def submit_rating(session_id: str, req: ABRatingRequest):
 
     if "X" in session["ratings"] and "Y" in session["ratings"]:
         session["completed"] = True
+        save_ab_session_sync({**session, "completed": True})
+
+    save_ab_rating_sync(
+        session_id=session_id,
+        label=req.session_label,
+        x_is_adaptad=session["x_is_adaptad"],
+        annoyance=req.annoyance,
+        relevance=req.relevance,
+        willingness=req.willingness,
+        notes=req.notes,
+    )
 
     return {"status": "recorded", "session_id": session_id}
 
@@ -382,12 +403,18 @@ def start_custom_ab_session(req: CustomABRequest):
         x_is_adaptad = False
 
     session_id = str(uuid.uuid4())
-    _ab_sessions[session_id] = {
+    session_data = {
         "session_id": session_id,
         "user_id": user.id,
         "user_name": user.name,
+        "user_age_group": user.age_group,
+        "user_country": req.country,
+        "user_interests": user.interests,
+        "user_ad_tolerance": user.ad_tolerance,
         "content_id": content.id,
         "content_title": content.title,
+        "content_genre": content.genre,
+        "content_language": "Custom",
         "session_x": session_x_records,
         "session_y": session_y_records,
         "x_is_adaptad": x_is_adaptad,
@@ -396,6 +423,8 @@ def start_custom_ab_session(req: CustomABRequest):
         "completed": False,
         "is_custom": True,
     }
+    _ab_sessions[session_id] = session_data
+    save_ab_session_sync(session_data)
 
     return {
         "session_id": session_id,
@@ -404,4 +433,28 @@ def start_custom_ab_session(req: CustomABRequest):
         "session_x": session_x_records,
         "session_y": session_y_records,
         "instructions": "Rate each session on annoyance, relevance, and willingness to continue (1-5).",
+    }
+
+
+@router.get("/history")
+def get_ab_history(limit: int = 100):
+    """
+    Return all completed AB sessions from the database with user profile,
+    content info, ratings, and who won each round.
+    """
+    sessions = get_ab_history_sync(limit=limit)
+
+    adaptad_wins = sum(1 for s in sessions if s["winner"] == "adaptad")
+    baseline_wins = sum(1 for s in sessions if s["winner"] == "baseline")
+    ties = sum(1 for s in sessions if s["winner"] == "tie")
+
+    return {
+        "sessions": sessions,
+        "total": len(sessions),
+        "aggregate": {
+            "adaptad_wins": adaptad_wins,
+            "baseline_wins": baseline_wins,
+            "ties": ties,
+            "win_rate": round(adaptad_wins / len(sessions), 3) if sessions else None,
+        },
     }
