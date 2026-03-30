@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { dataApi } from '../api/client'
 import { useStore } from '../store'
+import ChromosomeViz from '../components/ChromosomeViz'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -73,8 +74,11 @@ export default function Dashboard() {
 
       {genes && (
         <div className="card">
-          <h2 className="section-title mb-2">Active Chromosome</h2>
-          <p className="text-xs font-mono text-zinc-500 break-all">[{genes.map((g) => g.toFixed(3)).join(', ')}]</p>
+          <h2 className="section-title mb-1">Active Chromosome</h2>
+          <p className="text-xs text-slate-500 mb-4">
+            8 weights evolved by the GA that control when ads are shown, softened, delayed, or suppressed.
+          </p>
+          <ChromosomeViz genes={genes} fitness={fitness} />
         </div>
       )}
     </div>
