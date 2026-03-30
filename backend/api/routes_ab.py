@@ -100,6 +100,45 @@ def _run_random_session(user, content, ads, seed) -> list[dict]:
         })
     return records
 
+#new code
+def _build_user_profile(user)-> dict:
+    return {
+        "id": user.id,
+        "name": user.name,
+        "age_group": getattr(user, "age_group", None),
+        "profession": user.profession,
+        "interests": list(user.interests),  # ad categories
+        "content_preferences": list(user.content_preferences),  # genres
+        "binge_tendency": round(float(user.binge_tendency), 2),
+        "fatigue_level": round(float(user.fatigue_level), 2),
+        "engagement_score": round(float(user.engagement_score), 2),
+        "ad_tolerance": round(float(user.ad_tolerance), 2),
+        "preferred_watch_time": str(user.preferred_watch_time),
+        "session_count": user.session_count,
+    }
+
+def _build_content_profile(content)->dict:
+    return {
+        "id":content.id,
+        "title": content.title,
+        "genre": getattr(content, "genre", None),
+        "duration": getattr(content, "duration", None),
+        "mood": getattr(content, "mood", None),
+    }
+
+def _build_session_context(user, content, records)-> dict:
+    total_ads = sum(1 for r in records if r["decision"] in ("SHOW", "SOFTEN"))
+    total_breaks = len(records)
+
+    return {
+        "ads_shown": total_ads,
+        "total_breaks": total_breaks,
+        "fatigue": round(float(user.fatigue_level),2),
+        "session_depth": records[-1]["break_minute"] if records else 0,
+        "content_duration": getattr(content, "duration", None),
+        "binge": bool(getattr(user, "binge_tendency", 0.0) > 0.5),
+    }
+#till here
 
 @router.post("/start")
 def start_ab_session(req: ABStartRequest):
@@ -121,6 +160,11 @@ def start_ab_session(req: ABStartRequest):
 
     adaptad_records = _run_adaptad_session(user, content, ads, chromosome, seed)
     random_records = _run_random_session(user, content, ads, seed + 1)
+
+    #new code
+    user_profile=_build_user_profile(user)
+    content_profile = _build_content_profile(content)
+    session_context= _build_session_context(user, content, adaptad_records)
 
     # Ensure sessions are not identical; regenerate random if needed.
     attempts = 0
@@ -146,8 +190,11 @@ def start_ab_session(req: ABStartRequest):
         "session_id": session_id,
         "user_id": user.id,
         "user_name": user.name,
+        "user_profile": user_profile,
         "content_id": content.id,
         "content_title": content.title,
+        "content_profile": content_profile,
+        "session_context": session_context,
         "session_x": session_x_records,
         "session_y": session_y_records,
         "x_is_adaptad": x_is_adaptad,
@@ -159,6 +206,10 @@ def start_ab_session(req: ABStartRequest):
     return {
         "session_id": session_id,
         "user_name": user.name,
+        "user_profile": user_profile,
+        "content_title": content.title,
+        "content_profile": content_profile,
+        "session_context": session_context,
         "content_title": content.title,
         "session_x": session_x_records,
         "session_y": session_y_records,
@@ -252,7 +303,10 @@ def get_ab_results():
             {
                 "session_id": s["session_id"],
                 "user_name": s["user_name"],
+                "user_profile": s.get("user_profile"),
                 "content_title": s["content_title"],
+                "content_profile": s.get("content_profile"),
+                "session_context": s.get("session_context"),
                 "completed": s["completed"],
                 "ratings": s["ratings"],
             }
