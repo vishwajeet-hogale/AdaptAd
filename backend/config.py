@@ -103,9 +103,9 @@ class LLMConfig:
 class SimulationConfig:
     """Session simulation parameters."""
 
-    num_users: int = 400
-    num_content_items: int = 150
-    num_ads: int = 80
+    num_users: int = 1000
+    num_content_items: int = 300
+    num_ads: int = 200
     # Never place an ad in the first or last 5 minutes of content.
     break_point_buffer_minutes: int = 5
     # Binge detection requires 2+ queued episodes.

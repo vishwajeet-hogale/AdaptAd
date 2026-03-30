@@ -57,10 +57,10 @@ export interface SimulationResult {
 
 // API helpers
 export const dataApi = {
-  getUsers: (limit = 200) => api.get<{ users: User[]; total: number }>(`/users?limit=${limit}`),
+  getUsers: (limit = 1000) => api.get<{ users: User[]; total: number }>(`/users?limit=${limit}`),
   getUser: (id: number) => api.get<User>(`/users/${id}`),
-  getAds: (limit = 80) => api.get<{ ads: Ad[]; total: number }>(`/ads?limit=${limit}`),
-  getContent: (limit = 100) => api.get<{ content: ContentItem[]; total: number }>(`/content?limit=${limit}`),
+  getAds: (limit = 200) => api.get<{ ads: Ad[]; total: number }>(`/ads?limit=${limit}`),
+  getContent: (limit = 300) => api.get<{ content: ContentItem[]; total: number }>(`/content?limit=${limit}`),
   health: () => api.get('/health'),
 }
 

@@ -28,14 +28,14 @@ DURATION_WEIGHTS: dict[str, list[tuple[int, float]]] = {
 
 # Age group affinities per category.
 DEMOGRAPHIC_TARGETING: dict[str, list[str]] = {
-    "tech":    ["18-24", "25-34", "35-44"],
+    "tech":    ["13-17", "18-24", "25-34", "35-44"],
     "food":    ["18-24", "25-34", "35-44", "45-54"],
     "auto":    ["25-34", "35-44", "45-54", "55-64"],
-    "fashion": ["18-24", "25-34", "35-44"],
+    "fashion": ["13-17", "18-24", "25-34", "35-44"],
     "finance": ["25-34", "35-44", "45-54", "55-64", "65+"],
     "travel":  ["25-34", "35-44", "45-54", "55-64"],
     "health":  ["35-44", "45-54", "55-64", "65+"],
-    "gaming":  ["18-24", "25-34"],
+    "gaming":  ["13-17", "18-24", "25-34"],
 }
 
 # Seasonal affinities per category. Base values, adjusted per ad.
@@ -78,7 +78,7 @@ def _target_demographics(category: str, rng: random.Random) -> list[str]:
 
 
 def generate_ad_inventory(
-    count: int = 80, seed: Optional[int] = DEFAULT_SEED
+    count: int = 200, seed: Optional[int] = DEFAULT_SEED
 ) -> list[AdCandidate]:
     rng = random.Random(seed)
     ads: list[AdCandidate] = []
@@ -119,7 +119,7 @@ def generate_ad_inventory(
 
 def load_or_generate_ads(
     cache_path: Optional[str] = None,
-    count: int = 80,
+    count: int = 200,
     seed: Optional[int] = DEFAULT_SEED,
 ) -> list[AdCandidate]:
     import json

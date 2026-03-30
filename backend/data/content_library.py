@@ -166,6 +166,69 @@ MOVIE_CATALOG: list[tuple[str, str]] = [
     ("The Dragon's Breath",  "Mandarin"),
     ("Midnight in Shanghai", "Mandarin"),
     ("Silent Pearl",         "Mandarin"),
+    # More English films
+    ("Afterglow",            "English"),
+    ("The Pale Circuit",     "English"),
+    ("Stormwatch",           "English"),
+    ("Redline",              "English"),
+    ("The Broken Meridian",  "English"),
+    ("Dusk Signal",          "English"),
+    ("Cascade Protocol",     "English"),
+    ("Beyond the Grid",      "English"),
+    ("Shadowline",           "English"),
+    ("The Cold Frequency",   "English"),
+    ("Lost Harbor",          "English"),
+    ("Iron Current",         "English"),
+    ("The Open Wire",        "English"),
+    ("Drift Point",          "English"),
+    ("Signal Bloom",         "English"),
+    ("Outer Cascade",        "English"),
+    ("Warpfall",             "English"),
+    ("The Iron Drift",       "English"),
+    ("Pale Horizon",         "English"),
+    ("Night Fracture",       "English"),
+    ("The Blind Signal",     "English"),
+    ("Coldfall",             "English"),
+    ("Static Orbit",         "English"),
+    ("The Last Frequency",   "English"),
+    ("Deep Current",         "English"),
+    ("Void Signal",          "English"),
+    ("The Burning Wire",     "English"),
+    ("Ironfall",             "English"),
+    ("Pattern Signal",       "English"),
+    ("Zero Orbit",           "English"),
+    # More Korean films
+    ("Han River Rain",       "Korean"),
+    ("Seoul Protocol",       "Korean"),
+    ("The Last Han",         "Korean"),
+    ("Cherry Blossom Noir",  "Korean"),
+    # More Japanese films
+    ("Kyoto Rain",           "Japanese"),
+    ("Neon Dusk Tokyo",      "Japanese"),
+    ("The Quiet Mountain",   "Japanese"),
+    # More Hindi / Indian films
+    ("Aasman Ka Raaz",       "Hindi"),
+    ("Lambi Raahein",        "Hindi"),
+    ("Dil Aur Dhadkan",      "Hindi"),
+    # More Spanish / Latin films
+    ("La Ultima Ola",        "Spanish"),
+    ("El Mar Silencioso",    "Spanish"),
+    ("Tierra Oscura",        "Spanish"),
+    # More French films
+    ("Le Silence du Lac",    "French"),
+    ("Nuit Froide",          "French"),
+    # More Turkish films
+    ("Bogazici Gece",        "Turkish"),
+    ("Son Isik",             "Turkish"),
+    # More Portuguese / Brazilian
+    ("Noite do Rio",         "Portuguese"),
+    ("A Maré",               "Portuguese"),
+    # More Mandarin
+    ("The Jade Coast",       "Mandarin"),
+    ("Night over Beijing",   "Mandarin"),
+    # More German
+    ("Der Stille Wald",      "German"),
+    ("Morgendammerung",      "German"),
 ]
 
 
@@ -236,7 +299,7 @@ def _natural_break_points(
 
 
 def generate_content_library(
-    count: int = 150, seed: Optional[int] = DEFAULT_SEED
+    count: int = 300, seed: Optional[int] = DEFAULT_SEED
 ) -> list[ContentItem]:
     rng = random.Random(seed)
     items: list[ContentItem] = []
@@ -306,7 +369,7 @@ def generate_content_library(
 
 def load_or_generate_content(
     cache_path: Optional[str] = None,
-    count: int = 150,
+    count: int = 300,
     seed: Optional[int] = DEFAULT_SEED,
 ) -> list[ContentItem]:
     import json
